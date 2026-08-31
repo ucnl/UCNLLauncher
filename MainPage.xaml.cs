@@ -18,6 +18,7 @@ public partial class MainPage : ContentPage
         { "RedPhoneDXConfig", "https://docs.unavlab.com/RedPhoneDXConfig-Web/" },
         { "uConsole", "https://docs.unavlab.com/uConsole/" },
         { "AzimuthWebSuite", "https://docs.unavlab.com/AzimuthWebSuite/" },
+        { "AzimuthLBLX", "https://docs.unavlab.com/AzimuthLBLX/" },
         { "uGNSSMonitor", "https://docs.unavlab.com/uGNSS-Monitor/" }
     };
 
@@ -54,6 +55,14 @@ public partial class MainPage : ContentPage
     }
 
 #if ANDROID
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        // Не даём экрану гаснуть
+        DeviceDisplay.KeepScreenOn = true;
+    }
+
     public class GeolocationWebChromeClient : Android.Webkit.WebChromeClient
     {
         public override void OnGeolocationPermissionsShowPrompt(string origin, Android.Webkit.GeolocationPermissions.ICallback callback)
@@ -270,7 +279,7 @@ public partial class MainPage : ContentPage
 
         Task.Run(() => PollPort(token, 0), token);
 
-        if (_currentAppName == "AzimuthWebSuite")
+        if (_currentAppName == "AzimuthWebSuite" || _currentAppName == "AzimuthLBLX")
             Task.Run(() => PollPort(token, 1), token);
     }
 
@@ -350,6 +359,31 @@ public partial class MainPage : ContentPage
             }
             catch { }
 
+            if (!_usbService.IsAnyPortOpen)
+            {
+                if (!await _usbService.TryConnectAsync(0, 9600))
+                {
+                    LoadingIndicator.IsVisible = false;
+                    await DisplayAlert("USB", "Устройство AZM не найдено", "OK");
+                    return;
+                }
+            }
+            _ = _usbService.TryConnectAsync(1, 0);
+        }
+        else if (appName == "AzimuthLBLX")
+        {
+            // Запрашиваем разрешение на геолокацию
+            try
+            {
+                var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+                if (status != PermissionStatus.Granted)
+                {
+                    status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+                }
+            }
+            catch { }
+
+            // Подключаем Zima (порт 0) и внешний GNSS (порт 1)
             if (!_usbService.IsAnyPortOpen)
             {
                 if (!await _usbService.TryConnectAsync(0, 9600))
