@@ -14,9 +14,32 @@ namespace UCNLLauncher
         {
             base.OnCreate(savedInstanceState);
 
-            if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessFineLocation) != Permission.Granted)
+            var permissions = new[]
             {
-                ActivityCompat.RequestPermissions(this, new[] { Manifest.Permission.AccessFineLocation }, 1);
+                Manifest.Permission.AccessFineLocation,
+                Manifest.Permission.AccessCoarseLocation,
+                Manifest.Permission.AccessBackgroundLocation
+            };
+
+            var missing = permissions.Where(p =>
+                ContextCompat.CheckSelfPermission(this, p) != Permission.Granted).ToArray();
+
+            if (missing.Length > 0)
+            {
+                ActivityCompat.RequestPermissions(this, missing, 1);
+            }
+        }
+
+        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
+        {
+            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+
+            if (requestCode == 1)
+            {
+                for (int i = 0; i < permissions.Length; i++)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Permission] {permissions[i]}: {(grantResults[i] == Permission.Granted ? "Granted" : "Denied")}");
+                }
             }
         }
     }

@@ -12,6 +12,10 @@ public partial class MainPage : ContentPage
     private readonly HttpClient _httpClient;
     private string _currentAppName = "";
 
+    private Android.Locations.LocationManager? _locationManager;
+    private HarmonyLocationListener? _locationListener;
+    private CancellationTokenSource? _mauiGpsCts;
+
     private readonly Dictionary<string, string> _appUrls = new()
     {
         { "uWaver", "https://docs.unavlab.com/uWaver/" },
@@ -25,13 +29,37 @@ public partial class MainPage : ContentPage
     public MainPage()
     {
         InitializeComponent();
+        _ = RequestLocationPermissionsAsync();
         _usbService = new UsbService();
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
         MainWebView.Navigating += OnNavigating;
         MainWebView.Navigated += OnNavigated;
 
-        ConfigureWebView(); 
+        ConfigureWebView();
         LoadLauncher();
+    }
+
+    private async Task RequestLocationPermissionsAsync()
+    {
+        try
+        {
+            var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+            if (status != PermissionStatus.Granted)
+            {
+                status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+            }
+
+            try
+            {
+                var bgStatus = await Permissions.CheckStatusAsync<Permissions.LocationAlways>();
+                if (bgStatus != PermissionStatus.Granted)
+                {
+                    bgStatus = await Permissions.RequestAsync<Permissions.LocationAlways>();
+                }
+            }
+            catch { }
+        }
+        catch { }
     }
 
     private void ConfigureWebView()
@@ -42,12 +70,11 @@ public partial class MainPage : ContentPage
             if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView androidWebView)
             {
                 androidWebView.Settings.CacheMode = Android.Webkit.CacheModes.CacheElseNetwork;
-
-                // Разрешить геолокацию в WebView
+                androidWebView.Settings.JavaScriptEnabled = true;
+                androidWebView.Settings.DomStorageEnabled = true;
                 androidWebView.Settings.SetGeolocationEnabled(true);
                 androidWebView.Settings.SetGeolocationDatabasePath(
-                    Android.App.Application.Context.FilesDir.Path);
-
+                    Android.App.Application.Context.FilesDir?.Path ?? "/data/data/com.unavlab.ucnllauncher/files");
                 androidWebView.SetWebChromeClient(new GeolocationWebChromeClient());
             }
         };
@@ -55,22 +82,207 @@ public partial class MainPage : ContentPage
     }
 
 #if ANDROID
-
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        // Не даём экрану гаснуть
         DeviceDisplay.KeepScreenOn = true;
     }
 
     public class GeolocationWebChromeClient : Android.Webkit.WebChromeClient
     {
-        public override void OnGeolocationPermissionsShowPrompt(string origin, Android.Webkit.GeolocationPermissions.ICallback callback)
+        public override void OnGeolocationPermissionsShowPrompt(string? origin, Android.Webkit.GeolocationPermissions.ICallback? callback)
         {
-            callback.Invoke(origin, true, false);
+            callback?.Invoke(origin, true, false);
         }
     }
 #endif
+
+    private async void StartNativeGPS()
+    {
+        var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+        if (status != PermissionStatus.Granted)
+        {
+            status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+            if (status != PermissionStatus.Granted)
+            {
+                return;
+            }
+        }
+
+        // Пробуем Android LocationManager
+        try
+        {
+            if (await StartAndroidGPS())
+            {
+                return;
+            }
+        }
+        catch { }
+
+        // Fallback на MAUI
+        try
+        {
+            StartMauiGPS();
+        }
+        catch { }
+    }
+
+    private async Task<bool> StartAndroidGPS()
+    {
+        try
+        {
+            _locationManager = (Android.Locations.LocationManager?)Android.App.Application.Context
+                .GetSystemService(Android.Content.Context.LocationService);
+
+            if (_locationManager == null)
+            {
+                return false;
+            }
+
+            var gpsEnabled = _locationManager.IsProviderEnabled(Android.Locations.LocationManager.GpsProvider);
+            var networkEnabled = _locationManager.IsProviderEnabled(Android.Locations.LocationManager.NetworkProvider);
+            var passiveEnabled = _locationManager.IsProviderEnabled(Android.Locations.LocationManager.PassiveProvider);
+
+            if (!gpsEnabled && !networkEnabled && !passiveEnabled)
+            {
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    await DisplayAlert("GPS", "Пожалуйста, включите GPS для работы приложения", "OK");
+                });
+                return false;
+            }
+
+            _locationListener = new HarmonyLocationListener((location) =>
+            {
+                if (location != null && (location.Latitude != 0 || location.Longitude != 0))
+                {
+                    SendLocationToWebView(location.Latitude, location.Longitude,
+                        location.Speed, location.Bearing);
+                }
+            });
+
+            // Запрашиваем обновления от всех доступных провайдеров
+            if (gpsEnabled)
+            {
+                _locationManager.RequestLocationUpdates(
+                    Android.Locations.LocationManager.GpsProvider,
+                    2000,
+                    0,
+                    _locationListener);
+            }
+
+            if (networkEnabled)
+            {
+                _locationManager.RequestLocationUpdates(
+                    Android.Locations.LocationManager.NetworkProvider,
+                    2000,
+                    0,
+                    _locationListener);
+            }
+
+            if (passiveEnabled)
+            {
+                _locationManager.RequestLocationUpdates(
+                    Android.Locations.LocationManager.PassiveProvider,
+                    2000,
+                    0,
+                    _locationListener);
+            }
+
+            // Получаем последнюю известную локацию
+            var lastLocation = _locationManager.GetLastKnownLocation(Android.Locations.LocationManager.GpsProvider)
+                ?? _locationManager.GetLastKnownLocation(Android.Locations.LocationManager.NetworkProvider)
+                ?? _locationManager.GetLastKnownLocation(Android.Locations.LocationManager.PassiveProvider);
+
+            if (lastLocation != null && (lastLocation.Latitude != 0 || lastLocation.Longitude != 0))
+            {
+                SendLocationToWebView(lastLocation.Latitude, lastLocation.Longitude,
+                    lastLocation.Speed, lastLocation.Bearing);
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void StartMauiGPS()
+    {
+        try
+        {
+            _mauiGpsCts = new CancellationTokenSource();
+
+            Task.Run(async () =>
+            {
+                while (!_mauiGpsCts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var request = new GeolocationRequest(
+                            GeolocationAccuracy.Medium,
+                            TimeSpan.FromSeconds(10));
+
+                        var location = await Geolocation.Default.GetLocationAsync(request, _mauiGpsCts.Token);
+
+                        if (location != null && (location.Latitude != 0 || location.Longitude != 0))
+                        {
+                            SendLocationToWebView(location.Latitude, location.Longitude,
+                                Convert.ToSingle(location.Speed ?? 0), Convert.ToSingle(location.Course ?? 0));
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch { }
+
+                    await Task.Delay(3000, _mauiGpsCts.Token);
+                }
+            }, _mauiGpsCts.Token);
+        }
+        catch { }
+    }
+
+    private void SendLocationToWebView(double latitude, double longitude, float speed, float bearing)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                await MainWebView.EvaluateJavaScriptAsync(
+                    $"window._nativeGNSS = {{ " +
+                    $"lat: {latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}, " +
+                    $"lon: {longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}, " +
+                    $"speed: {speed.ToString(System.Globalization.CultureInfo.InvariantCulture)}, " +
+                    $"course: {bearing.ToString(System.Globalization.CultureInfo.InvariantCulture)} }}; " +
+                    $"window.dispatchEvent(new Event('native-gnss-update'));");
+            }
+            catch { }
+        });
+    }
+
+    private void StopNativeGPS()
+    {
+        try
+        {
+            if (_locationManager != null && _locationListener != null)
+            {
+                _locationManager.RemoveUpdates(_locationListener);
+            }
+
+            _mauiGpsCts?.Cancel();
+            _mauiGpsCts?.Dispose();
+            _mauiGpsCts = null;
+        }
+        catch { }
+        finally
+        {
+            _locationListener = null;
+            _locationManager = null;
+        }
+    }
 
     private void LoadLauncher()
     {
@@ -84,6 +296,7 @@ public partial class MainPage : ContentPage
     private void OnBackClicked(object? sender, EventArgs e)
     {
         _readLoopCts?.Cancel();
+        StopNativeGPS();
         LoadLauncher();
     }
 
@@ -92,7 +305,6 @@ public partial class MainPage : ContentPage
         if (e.Url.StartsWith("app://savefile?"))
         {
             e.Cancel = true;
-            System.Diagnostics.Debug.WriteLine("[Nav] SaveFile intercepted");
             var raw = Uri.UnescapeDataString(e.Url.Replace("app://savefile?", ""));
             HandleFileSave("file://save?" + raw);
         }
@@ -102,6 +314,10 @@ public partial class MainPage : ContentPage
             var appName = e.Url.Replace("app://", "");
             if (appName == "clear_cache")
                 ClearAllCache();
+            else if (appName == "stop_gps")
+                StopNativeGPS();
+            else if (appName == "start_gps")
+                StartNativeGPS();
             else
                 LaunchApp(appName);
         }
@@ -122,8 +338,6 @@ public partial class MainPage : ContentPage
             int portId = parts.Length > 0 && int.TryParse(parts[0], out var id) ? id : 0;
             int baudRate = parts.Length > 1 && int.TryParse(parts[1], out var br) ? br : 9600;
 
-            System.Diagnostics.Debug.WriteLine($"[Stub] SetBaud port={portId} baud={baudRate}");
-
             _ = Task.Run(async () =>
             {
                 _usbService.ClosePort(portId);
@@ -141,8 +355,6 @@ public partial class MainPage : ContentPage
             e.Cancel = true;
             var raw = Uri.UnescapeDataString(e.Url.Replace("uart://close?", ""));
             int portId = int.TryParse(raw, out var id) ? id : 0;
-
-            System.Diagnostics.Debug.WriteLine($"[Stub] Close port={portId}");
             _usbService.ClosePort(portId);
         }
     }
@@ -247,7 +459,6 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            // Инициализируем стуб
             string initStub = $@"
             if (window._initStub) {{
                 window._initStub({{
@@ -258,14 +469,12 @@ public partial class MainPage : ContentPage
         ";
             await MainWebView.EvaluateJavaScriptAsync(initStub);
 
-            // Загружаем device-adapter.js (он уже не ломает navigator.serial)
             using var stream = await FileSystem.OpenAppPackageFileAsync("device-adapter.js");
             using var reader = new StreamReader(stream);
             await MainWebView.EvaluateJavaScriptAsync(await reader.ReadToEndAsync());
         }
-        catch (Exception ex)
+        catch
         {
-            System.Diagnostics.Debug.WriteLine($"[Adapter] {ex.Message}");
             return;
         }
         StartUsbPolling();
@@ -300,9 +509,8 @@ public partial class MainPage : ContentPage
                 {
                     data = await _usbService.ReadAsync(portId, 100);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    System.Diagnostics.Debug.WriteLine($"[USB] Read error (port {portId}): {ex.Message}");
                     await Task.Delay(500, token);
                     continue;
                 }
@@ -327,9 +535,8 @@ public partial class MainPage : ContentPage
                 }
             }
             catch (TaskCanceledException) { break; }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"[USB] Poll error (port {portId}): {ex.Message}");
                 await Task.Delay(1000, token);
             }
         }
@@ -341,14 +548,13 @@ public partial class MainPage : ContentPage
         {
             await DisplayAlert("Ошибка", "Приложение не найдено", "OK");
             return;
-        }        
+        }
 
         _currentAppName = appName;
         LoadingIndicator.IsVisible = true;
 
-        if (appName == "AzimuthWebSuite")
+        if (appName == "AzimuthWebSuite" || appName == "AzimuthLBLX")
         {
-
             try
             {
                 var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
@@ -359,31 +565,6 @@ public partial class MainPage : ContentPage
             }
             catch { }
 
-            if (!_usbService.IsAnyPortOpen)
-            {
-                if (!await _usbService.TryConnectAsync(0, 9600))
-                {
-                    LoadingIndicator.IsVisible = false;
-                    await DisplayAlert("USB", "Устройство AZM не найдено", "OK");
-                    return;
-                }
-            }
-            _ = _usbService.TryConnectAsync(1, 0);
-        }
-        else if (appName == "AzimuthLBLX")
-        {
-            // Запрашиваем разрешение на геолокацию
-            try
-            {
-                var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-                if (status != PermissionStatus.Granted)
-                {
-                    status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-                }
-            }
-            catch { }
-
-            // Подключаем Zima (порт 0) и внешний GNSS (порт 1)
             if (!_usbService.IsAnyPortOpen)
             {
                 if (!await _usbService.TryConnectAsync(0, 9600))
@@ -397,10 +578,10 @@ public partial class MainPage : ContentPage
         }
         else if (appName == "uGNSSMonitor")
         {
-            _usbService.CloseAll();  // закрываем предыдущие подключения
+            _usbService.CloseAll();
             await Task.Delay(300);
 
-            if (!await _usbService.TryConnectAsync(0))  // без baud rate
+            if (!await _usbService.TryConnectAsync(0))
             {
                 LoadingIndicator.IsVisible = false;
                 await DisplayAlert("USB", "GNSS не найден", "OK");
@@ -454,35 +635,18 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            System.Diagnostics.Debug.WriteLine($"[FileSave] Received URL");
-
             var raw = Uri.UnescapeDataString(url.Replace("file://save?", ""));
             var parts = raw.Split('|', 2);
 
-            if (parts.Length < 2)
-            {
-                System.Diagnostics.Debug.WriteLine("[FileSave] ERROR: No base64 content");
-                return;
-            }
+            if (parts.Length < 2) return;
 
             var filename = parts[0];
             var base64Content = parts[1];
-
             var bytes = Convert.FromBase64String(base64Content);
 
-            System.Diagnostics.Debug.WriteLine($"[FileSave] {filename}: {bytes.Length} bytes");
-
-            // Сохраняем во временный файл и открываем Sharesheet
             ShareFile(filename, bytes);
         }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[FileSave] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
-            MainThread.BeginInvokeOnMainThread(async () =>
-            {
-                await DisplayAlert("Ошибка", $"Не удалось подготовить файл:\n{ex.Message}", "OK");
-            });
-        }
+        catch { }
     }
 
     private void ShareFile(string filename, byte[] bytes)
@@ -490,10 +654,8 @@ public partial class MainPage : ContentPage
 #if ANDROID
         try
         {
-            // Сохраняем в кэш
             var tempPath = System.IO.Path.Combine(FileSystem.CacheDirectory, filename);
             System.IO.File.WriteAllBytes(tempPath, bytes);
-            System.Diagnostics.Debug.WriteLine($"[FileSave] Temp file: {tempPath}");
 
             var file = new Java.IO.File(tempPath);
             var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(
@@ -511,16 +673,8 @@ public partial class MainPage : ContentPage
             chooser.AddFlags(Android.Content.ActivityFlags.NewTask);
 
             Android.App.Application.Context.StartActivity(chooser);
-            System.Diagnostics.Debug.WriteLine("[FileSave] ShareSheet opened");
         }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[FileSave] Share error: {ex.Message}");
-            MainThread.BeginInvokeOnMainThread(async () =>
-            {
-                await DisplayAlert("Ошибка", ex.Message, "OK");
-            });
-        }
+        catch { }
 #endif
     }
 
@@ -528,6 +682,28 @@ public partial class MainPage : ContentPage
     {
         base.OnDisappearing();
         _readLoopCts?.Cancel();
+        StopNativeGPS();
         _usbService.CloseAll();
     }
 }
+
+#if ANDROID
+public class HarmonyLocationListener : Java.Lang.Object, Android.Locations.ILocationListener
+{
+    private readonly Action<Android.Locations.Location?> _onLocation;
+
+    public HarmonyLocationListener(Action<Android.Locations.Location?> onLocation)
+    {
+        _onLocation = onLocation;
+    }
+
+    public void OnLocationChanged(Android.Locations.Location? location)
+    {
+        _onLocation?.Invoke(location);
+    }
+
+    public void OnProviderDisabled(string provider) { }
+    public void OnProviderEnabled(string provider) { }
+    public void OnStatusChanged(string? provider, Android.Locations.Availability status, Android.OS.Bundle? extras) { }
+}
+#endif
