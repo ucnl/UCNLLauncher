@@ -100,6 +100,66 @@
         .app-arrow {
             color: rgba(255, 255, 255, 0.3);
             font-size: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .app-card.expanded .app-arrow {
+            transform: rotate(90deg);
+        }
+
+        /* Стили для подменю */
+        .submenu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            margin-left: 76px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+            .submenu.active {
+                max-height: 300px;
+            }
+
+        .submenu-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+            .submenu-item:active {
+                background: rgba(255, 255, 255, 0.12);
+                transform: scale(0.98);
+            }
+
+        .submenu-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .submenu-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: white;
+            flex: 1;
+        }
+
+        .submenu-desc {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 2px;
+        }
+
+        .submenu-arrow {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 16px;
         }
 
         .status-bar {
@@ -135,22 +195,34 @@
 
         <div class="apps-grid">
 
-            <div class="app-card" onclick="launchApp('AzimuthWebSuite')">
-                <div class="app-icon">🐙</div>
-                <div class="app-info">
-                    <div class="app-name">AzimuthWebSuite</div>
-                    <div class="app-desc">Приложение для работы с системой Zima2 USBL</div>
+            <!-- Группа Zima2 -->
+            <div>
+                <div class="app-card" onclick="toggleSubmenu('zima2-submenu', this)">
+                    <div class="app-icon">🐙</div>
+                    <div class="app-info">
+                        <div class="app-name">Zima2</div>
+                        <div class="app-desc">Приложения для работы с системой Zima2</div>
+                    </div>
+                    <div class="app-arrow">→</div>
                 </div>
-                <div class="app-arrow">→</div>
-            </div>
-
-            <div class="app-card" onclick="launchApp('AzimuthLBLX')">
-                <div class="app-icon">🐙</div>
-                <div class="app-info">
-                    <div class="app-name">AzimuthLBLX</div>
-                    <div class="app-desc">Виртуальная длинная база на основе Zima2</div>
+                <div class="submenu" id="zima2-submenu">
+                    <div class="submenu-item" onclick="launchApp('AzimuthWebSuite')">
+                        <span class="submenu-icon">🐙</span>
+                        <div class="submenu-info">
+                            <div class="submenu-name">AzimuthWebSuite</div>
+                            <div class="submenu-desc">Работа с системой Zima2 USBL</div>
+                        </div>
+                        <span class="submenu-arrow">→</span>
+                    </div>
+                    <div class="submenu-item" onclick="launchApp('AzimuthLBLX')">
+                        <span class="submenu-icon">🎯</span>
+                        <div class="submenu-info">
+                            <div class="submenu-name">AzimuthLBLX</div>
+                            <div class="submenu-desc">Виртуальная длинная база</div>
+                        </div>
+                        <span class="submenu-arrow">→</span>
+                    </div>
                 </div>
-                <div class="app-arrow">→</div>
             </div>
 
             <div class="app-card" onclick="launchApp('uWaver')">
@@ -171,22 +243,34 @@
                 <div class="app-arrow">→</div>
             </div>
 
-            <div class="app-card" onclick="launchApp('uGNSSMonitor')">
-                <div class="app-icon">📡</div>
-                <div class="app-info">
-                    <div class="app-name">uGNSS-Monitor</div>
-                    <div class="app-desc">Монитор GNSS-приемника</div>
+            <!-- Группа Утилиты -->
+            <div>
+                <div class="app-card" onclick="toggleSubmenu('utils-submenu', this)">
+                    <div class="app-icon">🔧</div>
+                    <div class="app-info">
+                        <div class="app-name">Утилиты</div>
+                        <div class="app-desc">Вспомогательные инструменты</div>
+                    </div>
+                    <div class="app-arrow">→</div>
                 </div>
-                <div class="app-arrow">→</div>
-            </div>
-
-            <div class="app-card" onclick="launchApp('uConsole')">
-                <div class="app-icon">💻</div>
-                <div class="app-info">
-                    <div class="app-name">uConsole</div>
-                    <div class="app-desc">Универсальная консоль</div>
+                <div class="submenu" id="utils-submenu">
+                    <div class="submenu-item" onclick="launchApp('uGNSSMonitor')">
+                        <span class="submenu-icon">📡</span>
+                        <div class="submenu-info">
+                            <div class="submenu-name">uGNSS-Monitor</div>
+                            <div class="submenu-desc">Монитор GNSS-приемника</div>
+                        </div>
+                        <span class="submenu-arrow">→</span>
+                    </div>
+                    <div class="submenu-item" onclick="launchApp('uConsole')">
+                        <span class="submenu-icon">💻</span>
+                        <div class="submenu-info">
+                            <div class="submenu-name">uConsole</div>
+                            <div class="submenu-desc">Универсальная консоль</div>
+                        </div>
+                        <span class="submenu-arrow">→</span>
+                    </div>
                 </div>
-                <div class="app-arrow">→</div>
             </div>
         </div>
 
@@ -202,6 +286,31 @@
     </div>
 
     <script>
+        // Функция для переключения подменю
+        window.toggleSubmenu = function (submenuId, cardElement) {
+            const submenu = document.getElementById(submenuId);
+            if (submenu) {
+                submenu.classList.toggle('active');
+                cardElement.classList.toggle('expanded');
+
+                // Закрываем другие открытые подменю
+                const allSubmenus = document.querySelectorAll('.submenu.active');
+                const allCards = document.querySelectorAll('.app-card.expanded');
+
+                allSubmenus.forEach(menu => {
+                    if (menu.id !== submenuId) {
+                        menu.classList.remove('active');
+                    }
+                });
+
+                allCards.forEach(card => {
+                    if (card !== cardElement) {
+                        card.classList.remove('expanded');
+                    }
+                });
+            }
+        };
+
         window.originalLaunchApp = function (appName) {
             window.location.href = 'app://' + appName;
         };

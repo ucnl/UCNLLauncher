@@ -6,6 +6,7 @@ namespace UCNLLauncher;
 public partial class MainPage : ContentPage
 {
     internal readonly UsbService _usbService;
+    private CompassService? _compassService;
     private bool _isLauncherLoaded;
     private bool _isAppLoaded;
     private CancellationTokenSource? _readLoopCts;
@@ -286,6 +287,7 @@ public partial class MainPage : ContentPage
 
     private void LoadLauncher()
     {
+        StopCompass();
         _isLauncherLoaded = false;
         _isAppLoaded = false;
         _currentAppName = "";
@@ -297,6 +299,7 @@ public partial class MainPage : ContentPage
     {
         _readLoopCts?.Cancel();
         StopNativeGPS();
+        StopCompass();
         LoadLauncher();
     }
 
@@ -318,6 +321,10 @@ public partial class MainPage : ContentPage
                 StopNativeGPS();
             else if (appName == "start_gps")
                 StartNativeGPS();
+            else if (appName == "start_compass")
+                StartCompass();
+            else if (appName == "stop_compass")
+                StopCompass();
             else
                 LaunchApp(appName);
         }
@@ -376,6 +383,9 @@ public partial class MainPage : ContentPage
             Toolbar.IsVisible = true;
             await InjectDeviceAdapter();
 
+            // Запускаем компас автоматически
+            StartCompass();
+
             foreach (var kvp in _appUrls)
             {
                 if (e.Url.Contains(kvp.Value))
@@ -385,6 +395,46 @@ public partial class MainPage : ContentPage
                 }
             }
         }
+    }
+
+    private void StartCompass()
+    {
+#if ANDROID
+        try
+        {
+            _compassService = new CompassService((heading) =>
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    try
+                    {
+                        await MainWebView.EvaluateJavaScriptAsync(
+                            $"window._nativeCompass = {{ heading: {heading.ToString(System.Globalization.CultureInfo.InvariantCulture)} }}; " +
+                            $"window.dispatchEvent(new Event('native-compass-update'));");
+                    }
+                    catch { }
+                });
+            });
+
+            if (_compassService.IsAvailable)
+            {
+                _compassService.Start();
+            }
+        }
+        catch { }
+#endif
+    }
+
+    private void StopCompass()
+    {
+#if ANDROID
+        try
+        {
+            _compassService?.Stop();
+            _compassService = null;
+        }
+        catch { }
+#endif
     }
 
     private async void ClearAllCache()
@@ -683,6 +733,7 @@ public partial class MainPage : ContentPage
         base.OnDisappearing();
         _readLoopCts?.Cancel();
         StopNativeGPS();
+        StopCompass();
         _usbService.CloseAll();
     }
 }
