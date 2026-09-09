@@ -225,14 +225,36 @@
                 </div>
             </div>
 
-            <div class="app-card" onclick="launchApp('uWaver')">
-                <div class="app-icon">🌊</div>
-                <div class="app-info">
-                    <div class="app-name">uWaver</div>
-                    <div class="app-desc">Приложение для работы с модемами uWave</div>
+            <!-- Группа uWave -->
+            <div>
+                <div class="app-card" onclick="toggleSubmenu('uwave-submenu', this)">
+                    <div class="app-icon">🌊</div>
+                    <div class="app-info">
+                        <div class="app-name">uWave</div>
+                        <div class="app-desc">Приложения для работы с модемами uWave</div>
+                    </div>
+                    <div class="app-arrow">→</div>
                 </div>
-                <div class="app-arrow">→</div>
+                <div class="submenu" id="uwave-submenu">
+                    <div class="submenu-item" onclick="launchApp('uWaveSuite')">
+                        <span class="submenu-icon">🌊</span>
+                        <div class="submenu-info">
+                            <div class="submenu-name">uWaveSuite</div>
+                            <div class="submenu-desc">Трекинг, USBL, VLBL для модемов uWave</div>
+                        </div>
+                        <span class="submenu-arrow">→</span>
+                    </div>
+                    <div class="submenu-item" onclick="launchApp('uWaver')">
+                        <span class="submenu-icon">📡</span>
+                        <div class="submenu-info">
+                            <div class="submenu-name">uWaver</div>
+                            <div class="submenu-desc">Демонстрация протокола uWave</div>
+                        </div>
+                        <span class="submenu-arrow">→</span>
+                    </div>
+                </div>
             </div>
+
 
             <div class="app-card" onclick="launchApp('RedPhoneDXConfig')">
                 <div class="app-icon">📱</div>

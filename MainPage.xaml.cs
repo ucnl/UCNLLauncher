@@ -19,6 +19,7 @@ public partial class MainPage : ContentPage
 
     private readonly Dictionary<string, string> _appUrls = new()
     {
+        { "uWaveSuite", "https://docs.unavlab.com/uWaveSuite/" },
         { "uWaver", "https://docs.unavlab.com/uWaver/" },
         { "RedPhoneDXConfig", "https://docs.unavlab.com/RedPhoneDXConfig-Web/" },
         { "uConsole", "https://docs.unavlab.com/uConsole/" },
@@ -538,7 +539,9 @@ public partial class MainPage : ContentPage
 
         Task.Run(() => PollPort(token, 0), token);
 
-        if (_currentAppName == "AzimuthWebSuite" || _currentAppName == "AzimuthLBLX")
+        if (_currentAppName == "AzimuthWebSuite" || 
+            _currentAppName == "AzimuthLBLX" ||
+            _currentAppName == "uWaveSuite" )
             Task.Run(() => PollPort(token, 1), token);
     }
 
@@ -637,6 +640,19 @@ public partial class MainPage : ContentPage
                 await DisplayAlert("USB", "GNSS не найден", "OK");
                 return;
             }
+        }
+        else if (appName == "uWaveSuite")
+        {
+            if (!_usbService.IsAnyPortOpen)
+            {
+                if (!await _usbService.TryConnectAsync(0, 9600))
+                {
+                    LoadingIndicator.IsVisible = false;
+                    await DisplayAlert("USB", "Устройство uWave не найдено", "OK");
+                    return;
+                }
+            }
+            _ = _usbService.TryConnectAsync(1, 0);
         }
         else
         {
