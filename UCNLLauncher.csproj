@@ -20,9 +20,9 @@
 		<ApplicationId>com.unavlab.ucnllauncher</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<ApplicationDisplayVersion>1.1</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
-		<Version>1.0</Version>
+		<Version>1.1</Version>
 
 		<!-- Минимальная версия Android 5.0 (API 21) для поддержки USB Host -->
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>

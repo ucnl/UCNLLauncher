@@ -9,6 +9,7 @@ public partial class MainPage : ContentPage
     private CompassService? _compassService;
     private bool _isLauncherLoaded;
     private bool _isAppLoaded;
+    private bool _usbPollingStarted;
     private CancellationTokenSource? _readLoopCts;
     private readonly HttpClient _httpClient;
     private string _currentAppName = "";
@@ -16,6 +17,8 @@ public partial class MainPage : ContentPage
     private Android.Locations.LocationManager? _locationManager;
     private HarmonyLocationListener? _locationListener;
     private CancellationTokenSource? _mauiGpsCts;
+
+    private readonly PwaCacheService _cacheService;
 
     private readonly Dictionary<string, string> _appUrls = new()
     {
@@ -34,6 +37,8 @@ public partial class MainPage : ContentPage
         _ = RequestLocationPermissionsAsync();
         _usbService = new UsbService();
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        _cacheService = new PwaCacheService();
+
         MainWebView.Navigating += OnNavigating;
         MainWebView.Navigated += OnNavigated;
 
@@ -74,6 +79,10 @@ public partial class MainPage : ContentPage
                 androidWebView.Settings.CacheMode = Android.Webkit.CacheModes.CacheElseNetwork;
                 androidWebView.Settings.JavaScriptEnabled = true;
                 androidWebView.Settings.DomStorageEnabled = true;
+                androidWebView.Settings.DatabaseEnabled = true;
+                androidWebView.Settings.AllowFileAccess = true;
+                androidWebView.Settings.AllowFileAccessFromFileURLs = true;
+                androidWebView.Settings.AllowUniversalAccessFromFileURLs = true;
                 androidWebView.Settings.SetGeolocationEnabled(true);
                 androidWebView.Settings.SetGeolocationDatabasePath(
                     Android.App.Application.Context.FilesDir?.Path ?? "/data/data/com.unavlab.ucnllauncher/files");
@@ -111,7 +120,6 @@ public partial class MainPage : ContentPage
             }
         }
 
-        // Пробуем Android LocationManager
         try
         {
             if (await StartAndroidGPS())
@@ -121,7 +129,6 @@ public partial class MainPage : ContentPage
         }
         catch { }
 
-        // Fallback на MAUI
         try
         {
             StartMauiGPS();
@@ -163,7 +170,6 @@ public partial class MainPage : ContentPage
                 }
             });
 
-            // Запрашиваем обновления от всех доступных провайдеров
             if (gpsEnabled)
             {
                 _locationManager.RequestLocationUpdates(
@@ -191,7 +197,6 @@ public partial class MainPage : ContentPage
                     _locationListener);
             }
 
-            // Получаем последнюю известную локацию
             var lastLocation = _locationManager.GetLastKnownLocation(Android.Locations.LocationManager.GpsProvider)
                 ?? _locationManager.GetLastKnownLocation(Android.Locations.LocationManager.NetworkProvider)
                 ?? _locationManager.GetLastKnownLocation(Android.Locations.LocationManager.PassiveProvider);
@@ -289,6 +294,8 @@ public partial class MainPage : ContentPage
     private void LoadLauncher()
     {
         StopCompass();
+        _readLoopCts?.Cancel();
+        _usbPollingStarted = false;
         _isLauncherLoaded = false;
         _isAppLoaded = false;
         _currentAppName = "";
@@ -377,24 +384,16 @@ public partial class MainPage : ContentPage
             Toolbar.IsVisible = false;
             await Task.Delay(500);
             await InjectLauncherScript();
+            return;
         }
-        else if (!_isAppLoaded && e.Url.Contains("native=1"))
+
+        // PWA загрузилось (а не launcher.html) — инициализируем адаптер
+        if (!_isAppLoaded && !string.IsNullOrEmpty(_currentAppName))
         {
             _isAppLoaded = true;
             Toolbar.IsVisible = true;
             await InjectDeviceAdapter();
-
-            // Запускаем компас автоматически
             StartCompass();
-
-            foreach (var kvp in _appUrls)
-            {
-                if (e.Url.Contains(kvp.Value))
-                {
-                    Preferences.Set(kvp.Key + "_cache", e.Url);
-                    break;
-                }
-            }
         }
     }
 
@@ -443,6 +442,12 @@ public partial class MainPage : ContentPage
         foreach (var key in _appUrls.Keys)
             Preferences.Remove(key + "_cache");
 
+        try
+        {
+            _cacheService.DeleteAll();
+        }
+        catch { }
+
 #if ANDROID
         if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView androidWebView)
         {
@@ -450,7 +455,7 @@ public partial class MainPage : ContentPage
         }
 #endif
 
-        await DisplayAlert("Кэш", "Кэш всех приложений очищен.", "OK");
+        await DisplayAlert("Кэш", "Локальный кэш приложений очищен.", "OK");
     }
 
     private async Task InjectLauncherScript()
@@ -482,17 +487,9 @@ public partial class MainPage : ContentPage
                 {
                     await Task.Delay(3000);
 
-                    bool wasConnected = _usbService.IsAnyPortOpen;
                     bool nowConnected = _usbService.IsAnyPortOpen;
 
-                    if (!nowConnected && wasConnected)
-                    {
-                        MainThread.BeginInvokeOnMainThread(async () =>
-                        {
-                            await MainWebView.EvaluateJavaScriptAsync("updateUsbStatus(false)");
-                        });
-                    }
-                    else if (!nowConnected)
+                    if (!nowConnected)
                     {
                         bool connected = await _usbService.TryConnectAsync(0, 9600);
                         MainThread.BeginInvokeOnMainThread(async () =>
@@ -524,8 +521,9 @@ public partial class MainPage : ContentPage
             using var reader = new StreamReader(stream);
             await MainWebView.EvaluateJavaScriptAsync(await reader.ReadToEndAsync());
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[InjectDeviceAdapter] {ex.Message}");
             return;
         }
         StartUsbPolling();
@@ -533,15 +531,18 @@ public partial class MainPage : ContentPage
 
     private void StartUsbPolling()
     {
+        if (_usbPollingStarted) return;
+        _usbPollingStarted = true;
+
         _readLoopCts?.Cancel();
         _readLoopCts = new CancellationTokenSource();
         var token = _readLoopCts.Token;
 
         Task.Run(() => PollPort(token, 0), token);
 
-        if (_currentAppName == "AzimuthWebSuite" || 
+        if (_currentAppName == "AzimuthWebSuite" ||
             _currentAppName == "AzimuthLBLX" ||
-            _currentAppName == "uWaveSuite" )
+            _currentAppName == "uWaveSuite")
             Task.Run(() => PollPort(token, 1), token);
     }
 
@@ -604,8 +605,10 @@ public partial class MainPage : ContentPage
         }
 
         _currentAppName = appName;
+        _isAppLoaded = false;
         LoadingIndicator.IsVisible = true;
 
+        // USB-логика для конкретных приложений
         if (appName == "AzimuthWebSuite" || appName == "AzimuthLBLX")
         {
             try
@@ -667,34 +670,63 @@ public partial class MainPage : ContentPage
             }
         }
 
-        string appUrl = _appUrls[appName];
-        string fullUrl = appUrl.Contains("?")
-            ? $"{appUrl}&native=1"
-            : $"{appUrl}?native=1";
+        // --- Синхронизация с сетью (если есть) ---
+        string remoteUrl = _appUrls[appName];
 
-        _isAppLoaded = false;
-
+        bool hasNetwork = false;
         try
         {
-            var response = await _httpClient.GetAsync(appUrl);
-            if (response.IsSuccessStatusCode)
-            {
-                MainWebView.Source = fullUrl;
-                return;
-            }
+            hasNetwork = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
         }
         catch { }
 
-        string? cachedUrl = Preferences.Get(appName + "_cache", null);
-        if (cachedUrl != null)
+        bool shouldSync = !_cacheService.HasLocalCopy(appName);
+
+        if (hasNetwork && shouldSync)
         {
-            MainWebView.Source = cachedUrl;
+            try
+            {
+                bool synced = await _cacheService.SyncAppAsync(
+                    appName,
+                    remoteUrl,
+                    msg => System.Diagnostics.Debug.WriteLine(msg));
+
+                if (!synced && !_cacheService.HasLocalCopy(appName))
+                {
+                    LoadingIndicator.IsVisible = false;
+                    await DisplayAlert("Ошибка", "Не удалось загрузить приложение", "OK");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LaunchApp] Sync failed: {ex.Message}");
+
+                if (!_cacheService.HasLocalCopy(appName))
+                {
+                    LoadingIndicator.IsVisible = false;
+                    await DisplayAlert("Ошибка", "Не удалось загрузить приложение", "OK");
+                    return;
+                }
+            }
         }
-        else
+        else if (!hasNetwork && !_cacheService.HasLocalCopy(appName))
         {
             LoadingIndicator.IsVisible = false;
-            await DisplayAlert("Нет сети", "Приложение недоступно офлайн", "OK");
+            await DisplayAlert(
+                "Нет сети",
+                "Приложение ещё не загружено. Подключите интернет для первой загрузки.",
+                "OK");
+            return;
         }
+
+        // --- Открываем локальный index.html ---
+        var localPath = Path.Combine(_cacheService.GetAppCachePath(appName), "index.html");
+        var fileUrl = $"file://{localPath}";
+
+        System.Diagnostics.Debug.WriteLine($"[LaunchApp] Opening: {fileUrl}");
+
+        MainWebView.Source = fileUrl;
     }
 
     private void HandleFileSave(string url)
