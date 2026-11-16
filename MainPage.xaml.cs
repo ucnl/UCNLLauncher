@@ -1,5 +1,6 @@
-﻿using UCNLLauncher.Services;
+﻿using Microsoft.Maui.Platform;
 using System.Net.Http;
+using UCNLLauncher.Services;
 
 namespace UCNLLauncher;
 
@@ -19,6 +20,12 @@ public partial class MainPage : ContentPage
     private CancellationTokenSource? _mauiGpsCts;
 
     private readonly PwaCacheService _cacheService;
+    private GeolocationWebChromeClient? _webChromeClient;
+
+    // Фоновая синхронизация
+    private bool _isSyncingAll = false;
+    private readonly HashSet<string> _syncingApps = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _disabledApps = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, string> _appUrls = new()
     {
@@ -72,25 +79,38 @@ public partial class MainPage : ContentPage
     private void ConfigureWebView()
     {
 #if ANDROID
+        if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView existingWv)
+        {
+            SetupAndroidWebView(existingWv);
+        }
         MainWebView.HandlerChanged += (s, e) =>
         {
             if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView androidWebView)
             {
-                androidWebView.Settings.CacheMode = Android.Webkit.CacheModes.CacheElseNetwork;
-                androidWebView.Settings.JavaScriptEnabled = true;
-                androidWebView.Settings.DomStorageEnabled = true;
-                androidWebView.Settings.DatabaseEnabled = true;
-                androidWebView.Settings.AllowFileAccess = true;
-                androidWebView.Settings.AllowFileAccessFromFileURLs = true;
-                androidWebView.Settings.AllowUniversalAccessFromFileURLs = true;
-                androidWebView.Settings.SetGeolocationEnabled(true);
-                androidWebView.Settings.SetGeolocationDatabasePath(
-                    Android.App.Application.Context.FilesDir?.Path ?? "/data/data/com.unavlab.ucnllauncher/files");
-                androidWebView.SetWebChromeClient(new GeolocationWebChromeClient());
+                SetupAndroidWebView(androidWebView);
             }
         };
 #endif
     }
+
+#if ANDROID
+    private void SetupAndroidWebView(Android.Webkit.WebView androidWebView)
+    {
+        androidWebView.Settings.CacheMode = Android.Webkit.CacheModes.CacheElseNetwork;
+        androidWebView.Settings.JavaScriptEnabled = true;
+        androidWebView.Settings.DomStorageEnabled = true;
+        androidWebView.Settings.DatabaseEnabled = true;
+        androidWebView.Settings.AllowFileAccess = true;
+        androidWebView.Settings.AllowFileAccessFromFileURLs = true;
+        androidWebView.Settings.AllowUniversalAccessFromFileURLs = true;
+        androidWebView.Settings.SetGeolocationEnabled(true);
+        androidWebView.Settings.SetGeolocationDatabasePath(
+            Android.App.Application.Context.FilesDir?.Path ?? "/data/data/com.unavlab.ucnllauncher/files");
+        _webChromeClient = new GeolocationWebChromeClient();
+        androidWebView.SetWebChromeClient(_webChromeClient);
+        androidWebView.AddJavascriptInterface(new NativeBridge(this), "NativeBridge");
+    }
+#endif
 
 #if ANDROID
     protected override void OnAppearing()
@@ -99,14 +119,85 @@ public partial class MainPage : ContentPage
         DeviceDisplay.KeepScreenOn = true;
     }
 
+    internal void HandleFileChooserResult(int requestCode, Android.App.Result resultCode, Android.Content.Intent? data)
+    {
+        _webChromeClient?.HandleActivityResult(requestCode, resultCode, data);
+    }
+
     public class GeolocationWebChromeClient : Android.Webkit.WebChromeClient
     {
+        private Android.Webkit.IValueCallback? _filePathCallback;
+        internal const int FileChooserRequestCode = 4321;
+
         public override void OnGeolocationPermissionsShowPrompt(string? origin, Android.Webkit.GeolocationPermissions.ICallback? callback)
         {
             callback?.Invoke(origin, true, false);
         }
+
+        public override bool OnShowFileChooser(
+            Android.Webkit.WebView? webView,
+            Android.Webkit.IValueCallback? filePathCallback,
+            Android.Webkit.WebChromeClient.FileChooserParams? fileChooserParams)
+        {
+            System.Diagnostics.Debug.WriteLine("[FileChooser] OnShowFileChooser called");
+
+            _filePathCallback = filePathCallback;
+
+            var intent = fileChooserParams?.CreateIntent();
+            if (intent == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[FileChooser] CreateIntent returned null");
+                _filePathCallback = null;
+                return false;
+            }
+
+            try
+            {
+                var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+                activity?.StartActivityForResult(intent, FileChooserRequestCode);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[FileChooser] StartActivityForResult failed: " + ex.Message);
+                _filePathCallback = null;
+                return false;
+            }
+        }
+
+        public void HandleActivityResult(int requestCode, Android.App.Result resultCode, Android.Content.Intent? data)
+        {
+            if (requestCode != FileChooserRequestCode) return;
+
+            System.Diagnostics.Debug.WriteLine($"[FileChooser] HandleActivityResult result={resultCode}, data={data?.Data}");
+
+            Android.Net.Uri[] results;
+            if (resultCode == Android.App.Result.Ok && data != null)
+            {
+                results = Android.Webkit.WebChromeClient.FileChooserParams.ParseResult((int)resultCode, data);
+                if (results == null || results.Length == 0)
+                    results = new Android.Net.Uri[0];
+            }
+            else
+            {
+                results = new Android.Net.Uri[0];
+            }
+
+            try
+            {
+                _filePathCallback?.OnReceiveValue(results);
+                System.Diagnostics.Debug.WriteLine($"[FileChooser] OnReceiveValue called, uris={results.Length}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[FileChooser] OnReceiveValue failed: " + ex.Message);
+            }
+            finally
+            {
+                _filePathCallback = null;
+            }
+        }
     }
-#endif
 
     private async void StartNativeGPS()
     {
@@ -135,6 +226,8 @@ public partial class MainPage : ContentPage
         }
         catch { }
     }
+
+#endif
 
     private async Task<bool> StartAndroidGPS()
     {
@@ -378,12 +471,21 @@ public partial class MainPage : ContentPage
     {
         LoadingIndicator.IsVisible = false;
 
+        if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView wv)
+        {
+            wv.AddJavascriptInterface(new NativeBridge(this), "NativeBridge");
+        }
+
         if (!_isLauncherLoaded)
         {
             _isLauncherLoaded = true;
             Toolbar.IsVisible = false;
             await Task.Delay(500);
             await InjectLauncherScript();
+
+            // Фоновая синхронизация всех отсутствующих приложений
+            _ = SyncAllMissingAppsAsync();
+
             return;
         }
 
@@ -394,12 +496,24 @@ public partial class MainPage : ContentPage
             Toolbar.IsVisible = true;
             await InjectDeviceAdapter();
             StartCompass();
+
+            // uGNSSMonitor умеет работать без USB — сразу поднимаем GPS,
+            // чтобы встроенный источник был доступен по кнопке.
+            if (_currentAppName == "uGNSSMonitor")
+            {
+                StartNativeGPS();
+            }
         }
     }
 
     private void StartCompass()
     {
 #if ANDROID
+        if (_compassService != null)
+        {
+            // Уже запущен — повторно не создаём (идемпотентность)
+            return;
+        }
         try
         {
             _compassService = new CompassService((heading) =>
@@ -440,7 +554,10 @@ public partial class MainPage : ContentPage
     private async void ClearAllCache()
     {
         foreach (var key in _appUrls.Keys)
+        {
             Preferences.Remove(key + "_cache");
+            Preferences.Remove($"{key}_lastSync");
+        }
 
         try
         {
@@ -460,7 +577,7 @@ public partial class MainPage : ContentPage
 
     private async Task InjectLauncherScript()
     {
-        string script = @"
+        string script = @"        
         window.launchApp = function(appName) { window.location.href = 'app://' + appName; };
         window.updateUsbStatus = function(connected) {
             var dot = document.getElementById('statusDot');
@@ -469,6 +586,27 @@ public partial class MainPage : ContentPage
                 dot.className = connected ? 'status-dot connected' : 'status-dot';
                 text.textContent = connected ? 'USB подключено' : 'USB не найдено';
             }
+        };
+        window.setAppDisabled = function(appName, disabled, hint) {
+            // Находим все элементы с data-app-name или onclick launchApp(appName)
+            var els = document.querySelectorAll('[data-app-name=""' + appName + '""]');
+            els.forEach(function(el) {
+                el.style.pointerEvents = disabled ? 'none' : '';
+                el.style.opacity = disabled ? '0.5' : '';
+                el.style.position = 'relative';
+                var badge = el.querySelector('.app-download-badge');
+                if (disabled) {
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'app-download-badge';
+                        badge.style.cssText = 'position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:11px; background:rgba(80,180,255,0.3); color:#fff; padding:4px 8px; border-radius:8px;';
+                        el.appendChild(badge);
+                    }
+                    badge.textContent = hint || 'Загрузка...';
+                } else if (badge) {
+                    badge.remove();
+                }
+            });
         };
     ";
         await MainWebView.EvaluateJavaScriptAsync(script);
@@ -596,6 +734,142 @@ public partial class MainPage : ContentPage
         }
     }
 
+    // ========== ФОНОВАЯ СИНХРОНИЗАЦИЯ ВСЕХ ОТСУТСТВУЮЩИХ PWA ==========
+
+    private async Task SyncAllMissingAppsAsync()
+    {
+        if (_isSyncingAll) return;
+        _isSyncingAll = true;
+
+        try
+        {
+            bool hasNetwork = false;
+            try
+            {
+                hasNetwork = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
+            }
+            catch { }
+
+            if (!hasNetwork)
+            {
+                System.Diagnostics.Debug.WriteLine("[SyncAll] Нет сети — пропускаем");
+                return;
+            }
+
+            // Список приложений, которых нет локально
+            var missingApps = new List<string>();
+            foreach (var kvp in _appUrls)
+            {
+                if (!_cacheService.HasLocalCopy(kvp.Key))
+                    missingApps.Add(kvp.Key);
+            }
+
+            if (missingApps.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[SyncAll] Все приложения уже локально есть");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[SyncAll] Загружаем {missingApps.Count} приложений последовательно");
+
+            await UpdateSyncStatus($"Загрузка приложений: 0/{missingApps.Count}...", true);
+
+            int done = 0;
+            foreach (var appName in missingApps)
+            {
+                // Блокируем кнопку этого приложения
+                await SetAppDisabledAsync(appName, true, "Загрузка...");
+                _disabledApps.Add(appName);
+                _syncingApps.Add(appName);
+
+                try
+                {
+                    await UpdateSyncStatus($"Загрузка {appName}: {done + 1}/{missingApps.Count}...", true);
+
+                    bool synced = await _cacheService.SyncAppAsync(
+                        appName,
+                        _appUrls[appName],
+                        msg => System.Diagnostics.Debug.WriteLine(msg));
+
+                    if (synced)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — OK");
+                        Preferences.Set($"{appName}_lastSync", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — не удалось");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — ошибка: {ex.Message}");
+                }
+                finally
+                {
+                    _syncingApps.Remove(appName);
+                    _disabledApps.Remove(appName);
+
+                    // Разблокируем кнопку
+                    await SetAppDisabledAsync(appName, false, "");
+                }
+
+                done++;
+            }
+
+            await UpdateSyncStatus($"Загрузка завершена: {done}/{missingApps.Count}", false);
+            System.Diagnostics.Debug.WriteLine($"[SyncAll] Завершено: {done}/{missingApps.Count}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SyncAll] Общая ошибка: {ex.Message}");
+        }
+        finally
+        {
+            _isSyncingAll = false;
+        }
+    }
+
+    /// <summary>
+    /// Показать/скрыть статус-строку на launcher.html.
+    /// </summary>
+    private async Task UpdateSyncStatus(string text, bool visible)
+    {
+        try
+        {
+            var escaped = text.Replace("\\", "\\\\").Replace("'", "\\'");
+            await MainWebView.EvaluateJavaScriptAsync($@"
+                (function() {{
+                    var el = document.getElementById('syncStatus');
+                    if (!el) return;
+                    el.textContent = '{escaped}';
+                    el.style.display = {(visible ? "'block'" : "'none'")};
+                }})();
+            ");
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Заблокировать/разблокировать кнопку приложения на launcher.html.
+    /// </summary>
+    private async Task SetAppDisabledAsync(string appName, bool disabled, string hint)
+    {
+        try
+        {
+            var escapedApp = appName.Replace("'", "\\'");
+            var escapedHint = (hint ?? "").Replace("\\", "\\\\").Replace("'", "\\'");
+            await MainWebView.EvaluateJavaScriptAsync($@"
+                (function() {{
+                    if (typeof window.setAppDisabled === 'function') {{
+                        window.setAppDisabled('{escapedApp}', {(disabled ? "true" : "false")}, '{escapedHint}');
+                    }}
+                }})();
+            ");
+        }
+        catch { }
+    }
+
     private async void LaunchApp(string appName)
     {
         if (!_appUrls.ContainsKey(appName))
@@ -604,11 +878,20 @@ public partial class MainPage : ContentPage
             return;
         }
 
+        // Не открываем приложение, если его сейчас синхронизируем
+        if (_syncingApps.Contains(appName))
+        {
+            await DisplayAlert("Подождите", "Приложение ещё загружается, подождите окончания загрузки.", "OK");
+            return;
+        }
+
         _currentAppName = appName;
         _isAppLoaded = false;
         LoadingIndicator.IsVisible = true;
 
-        // USB-логика для конкретных приложений
+        // USB-логика. Для приложений, умеющих работать без устройства
+        // (просмотр логов, встроенный GPS/компас), подключение — best effort:
+        // не удалось — всё равно запускаем PWA, пользователь сам решит.
         if (appName == "AzimuthWebSuite" || appName == "AzimuthLBLX")
         {
             try
@@ -625,9 +908,7 @@ public partial class MainPage : ContentPage
             {
                 if (!await _usbService.TryConnectAsync(0, 9600))
                 {
-                    LoadingIndicator.IsVisible = false;
-                    await DisplayAlert("USB", "Устройство AZM не найдено", "OK");
-                    return;
+                    System.Diagnostics.Debug.WriteLine($"[LaunchApp] {appName}: AZM не найден, работаем без устройства");
                 }
             }
             _ = _usbService.TryConnectAsync(1, 0);
@@ -639,9 +920,7 @@ public partial class MainPage : ContentPage
 
             if (!await _usbService.TryConnectAsync(0))
             {
-                LoadingIndicator.IsVisible = false;
-                await DisplayAlert("USB", "GNSS не найден", "OK");
-                return;
+                System.Diagnostics.Debug.WriteLine("[LaunchApp] uGNSSMonitor: USB не найден, работаем во встроенном режиме");
             }
         }
         else if (appName == "uWaveSuite")
@@ -650,15 +929,14 @@ public partial class MainPage : ContentPage
             {
                 if (!await _usbService.TryConnectAsync(0, 9600))
                 {
-                    LoadingIndicator.IsVisible = false;
-                    await DisplayAlert("USB", "Устройство uWave не найдено", "OK");
-                    return;
+                    System.Diagnostics.Debug.WriteLine("[LaunchApp] uWaveSuite: uWave не найден, работаем без устройства");
                 }
             }
             _ = _usbService.TryConnectAsync(1, 0);
         }
         else
         {
+            // uWaver, RedPhoneDXConfig, uConsole — без устройства работать не могут
             if (!_usbService.IsAnyPortOpen)
             {
                 if (!await _usbService.TryConnectAsync(0, 9600))
@@ -684,6 +962,10 @@ public partial class MainPage : ContentPage
 
         if (hasNetwork && shouldSync)
         {
+            _syncingApps.Add(appName);
+            _disabledApps.Add(appName);
+            await SetAppDisabledAsync(appName, true, "Загрузка...");
+
             try
             {
                 bool synced = await _cacheService.SyncAppAsync(
@@ -691,7 +973,11 @@ public partial class MainPage : ContentPage
                     remoteUrl,
                     msg => System.Diagnostics.Debug.WriteLine(msg));
 
-                if (!synced && !_cacheService.HasLocalCopy(appName))
+                if (synced)
+                {
+                    Preferences.Set($"{appName}_lastSync", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                }
+                else if (!_cacheService.HasLocalCopy(appName))
                 {
                     LoadingIndicator.IsVisible = false;
                     await DisplayAlert("Ошибка", "Не удалось загрузить приложение", "OK");
@@ -708,6 +994,12 @@ public partial class MainPage : ContentPage
                     await DisplayAlert("Ошибка", "Не удалось загрузить приложение", "OK");
                     return;
                 }
+            }
+            finally
+            {
+                _syncingApps.Remove(appName);
+                _disabledApps.Remove(appName);
+                await SetAppDisabledAsync(appName, false, "");
             }
         }
         else if (!hasNetwork && !_cacheService.HasLocalCopy(appName))
@@ -784,6 +1076,108 @@ public partial class MainPage : ContentPage
         StopCompass();
         _usbService.CloseAll();
     }
+
+
+#if ANDROID
+
+    internal void LogToPwa(string msg)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                var escaped = msg.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n");
+                await MainWebView.EvaluateJavaScriptAsync($"App.setStatus('{escaped}')");
+            }
+            catch { }
+        });
+    }
+
+    internal async void PickLogFileViaFilePicker()
+    {
+        try
+        {
+            var result = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Выберите лог",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.Android, new[] { "*/*" } }
+                })
+            });
+
+            if (result == null)
+            {
+                SendLogErrorToWebView("Файл не выбран");
+                return;
+            }
+
+            using var stream = await result.OpenReadAsync();
+            using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8);
+            var text = await reader.ReadToEndAsync();
+
+            const int chunkSize = 400_000;
+            int totalChunks = (text.Length + chunkSize - 1) / chunkSize;
+
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try
+                {
+                    await MainWebView.EvaluateJavaScriptAsync("window._nativeLogContent = '';");
+
+                    for (int i = 0; i < totalChunks; i++)
+                    {
+                        int start = i * chunkSize;
+                        int len = Math.Min(chunkSize, text.Length - start);
+                        var chunk = text.Substring(start, len);
+
+                        var escaped = chunk
+                            .Replace("\\", "\\\\")
+                            .Replace("'", "\\'")
+                            .Replace("\r", "\\r")
+                            .Replace("\n", "\\n")
+                            .Replace("\u2028", "\\u2028")
+                            .Replace("\u2029", "\\u2029");
+
+                        await MainWebView.EvaluateJavaScriptAsync(
+                            $"window._nativeLogContent += '{escaped}';");
+                        await Task.Delay(10);
+                    }
+
+                    await Task.Delay(1000);
+
+                    await MainWebView.EvaluateJavaScriptAsync(
+                        "if (window._nativeLogContent_ready) window._nativeLogContent_ready();");
+                }
+                catch (Exception ex)
+                {
+                    SendLogErrorToWebView("Ошибка передачи: " + ex.Message);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            SendLogErrorToWebView(ex.Message);
+        }
+    }
+
+    private void SendLogErrorToWebView(string message)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                var escaped = message.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n");
+                await MainWebView.EvaluateJavaScriptAsync(
+                    $"window._nativeLogError = '{escaped}'; " +
+                    $"if (window._nativeLogContent_error) window._nativeLogContent_error();");
+            }
+            catch { }
+        });
+    }
+#endif
+
+
 }
 
 #if ANDROID
@@ -805,4 +1199,19 @@ public class HarmonyLocationListener : Java.Lang.Object, Android.Locations.ILoca
     public void OnProviderEnabled(string provider) { }
     public void OnStatusChanged(string? provider, Android.Locations.Availability status, Android.OS.Bundle? extras) { }
 }
+
+public class NativeBridge : Java.Lang.Object
+{
+    private readonly MainPage _page;
+    public NativeBridge(MainPage page) { _page = page; }
+
+    [Java.Interop.Export("PickLogFile")]
+    [Android.Webkit.JavascriptInterface]
+    public void PickLogFile()
+    {
+        _page.PickLogFileViaFilePicker();
+    }
+
+}
+
 #endif

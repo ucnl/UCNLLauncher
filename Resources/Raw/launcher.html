@@ -206,7 +206,7 @@
                     <div class="app-arrow">→</div>
                 </div>
                 <div class="submenu" id="zima2-submenu">
-                    <div class="submenu-item" onclick="launchApp('AzimuthWebSuite')">
+                    <div class="submenu-item" data-app-name="AzimuthWebSuite" onclick="launchApp('AzimuthWebSuite')">
                         <span class="submenu-icon">🐙</span>
                         <div class="submenu-info">
                             <div class="submenu-name">AzimuthWebSuite</div>
@@ -214,7 +214,7 @@
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
-                    <div class="submenu-item" onclick="launchApp('AzimuthLBLX')">
+                    <div class="submenu-item" data-app-name="AzimuthLBLX" onclick="launchApp('AzimuthLBLX')">
                         <span class="submenu-icon">🎯</span>
                         <div class="submenu-info">
                             <div class="submenu-name">AzimuthLBLX</div>
@@ -236,7 +236,7 @@
                     <div class="app-arrow">→</div>
                 </div>
                 <div class="submenu" id="uwave-submenu">
-                    <div class="submenu-item" onclick="launchApp('uWaveSuite')">
+                    <div class="submenu-item" data-app-name="uWaveSuite" onclick="launchApp('uWaveSuite')">
                         <span class="submenu-icon">🌊</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uWaveSuite</div>
@@ -244,7 +244,7 @@
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
-                    <div class="submenu-item" onclick="launchApp('uWaver')">
+                    <div class="submenu-item" data-app-name="uWaver" onclick="launchApp('uWaver')">
                         <span class="submenu-icon">📡</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uWaver</div>
@@ -256,7 +256,7 @@
             </div>
 
 
-            <div class="app-card" onclick="launchApp('RedPhoneDXConfig')">
+            <div class="app-card" data-app-name="RedPhoneDXConfig" onclick="launchApp('RedPhoneDXConfig')">
                 <div class="app-icon">📱</div>
                 <div class="app-info">
                     <div class="app-name">RedPhoneDX Config</div>
@@ -276,7 +276,7 @@
                     <div class="app-arrow">→</div>
                 </div>
                 <div class="submenu" id="utils-submenu">
-                    <div class="submenu-item" onclick="launchApp('uGNSSMonitor')">
+                    <div class="submenu-item" data-app-name="uGNSSMonitor" onclick="launchApp('uGNSSMonitor')">
                         <span class="submenu-icon">📡</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uGNSS-Monitor</div>
@@ -284,7 +284,7 @@
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
-                    <div class="submenu-item" onclick="launchApp('uConsole')">
+                    <div class="submenu-item" data-app-name="uConsole" onclick="launchApp('uConsole')">
                         <span class="submenu-icon">💻</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uConsole</div>
@@ -299,6 +299,10 @@
         <div class="status-bar">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">Проверка USB...</span>
+        </div>
+
+        <div id="syncStatus" class="status-bar" style="display: none; margin-top: 16px; background: rgba(80, 180, 255, 0.15); color: rgba(255, 255, 255, 0.9);">
+            Загрузка приложений...
         </div>
 
         <div class="status-bar" style="margin-top: 16px; cursor: pointer;" onclick="confirmClearCache()">
