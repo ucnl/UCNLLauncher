@@ -410,8 +410,7 @@ public partial class MainPage : ContentPage
         if (e.Url.StartsWith("app://savefile?"))
         {
             e.Cancel = true;
-            var raw = Uri.UnescapeDataString(e.Url.Replace("app://savefile?", ""));
-            HandleFileSave("file://save?" + raw);
+            HandleFileSave(Uri.UnescapeDataString(e.Url.Replace("app://savefile?", "")));
         }
         else if (e.Url.StartsWith("app://"))
         {
@@ -452,7 +451,7 @@ public partial class MainPage : ContentPage
         else if (e.Url.StartsWith("file://save?"))
         {
             e.Cancel = true;
-            HandleFileSave(e.Url);
+            HandleFileSave(Uri.UnescapeDataString(e.Url.Replace("file://save?", "")));
         }
         else if (e.Url.StartsWith("uart://close?"))
         {
@@ -1046,50 +1045,61 @@ public partial class MainPage : ContentPage
         MainWebView.Source = fileUrl;
     }
 
-    private void HandleFileSave(string url)
+    private async void HandleFileSave(string payload)
     {
         try
         {
-            var raw = Uri.UnescapeDataString(url.Replace("file://save?", ""));
-            var parts = raw.Split('|', 2);
+            var parts = payload.Split('|', 2);
+            if (parts.Length < 2)
+                throw new FormatException("Invalid save payload");
 
-            if (parts.Length < 2) return;
-
-            var filename = parts[0];
-            var base64Content = parts[1];
-            var bytes = Convert.FromBase64String(base64Content);
+            var filename = SanitizeFileName(parts[0]);
+            var bytes = Convert.FromBase64String(parts[1]);
 
             ShareFile(filename, bytes);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[HandleFileSave] {ex.Message}");
+            try
+            {
+                await DisplayAlert("Ошибка", "Не удалось сохранить файл", "OK");
+            }
+            catch { }
+        }
+    }
+
+    private static string SanitizeFileName(string filename)
+    {
+        var name = System.IO.Path.GetFileName(filename.Replace('\\', '/')) ?? "";
+        foreach (var c in System.IO.Path.GetInvalidFileNameChars())
+            name = name.Replace(c, '_');
+        name = name.Trim();
+        return string.IsNullOrEmpty(name) || name == "." || name == ".." ? "file" : name;
     }
 
     private void ShareFile(string filename, byte[] bytes)
     {
 #if ANDROID
-        try
-        {
-            var tempPath = System.IO.Path.Combine(FileSystem.CacheDirectory, filename);
-            System.IO.File.WriteAllBytes(tempPath, bytes);
+        var tempPath = System.IO.Path.Combine(FileSystem.CacheDirectory, filename);
+        System.IO.File.WriteAllBytes(tempPath, bytes);
 
-            var file = new Java.IO.File(tempPath);
-            var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(
-                Android.App.Application.Context,
-                "com.unavlab.ucnllauncher.fileprovider",
-                file);
+        var file = new Java.IO.File(tempPath);
+        var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(
+            Android.App.Application.Context,
+            "com.unavlab.ucnllauncher.fileprovider",
+            file);
 
-            var intent = new Android.Content.Intent(Android.Content.Intent.ActionSend);
-            intent.SetType("*/*");
-            intent.PutExtra(Android.Content.Intent.ExtraStream, uri);
-            intent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
-            intent.AddFlags(Android.Content.ActivityFlags.NewTask);
+        var intent = new Android.Content.Intent(Android.Content.Intent.ActionSend);
+        intent.SetType("*/*");
+        intent.PutExtra(Android.Content.Intent.ExtraStream, uri);
+        intent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
+        intent.AddFlags(Android.Content.ActivityFlags.NewTask);
 
-            var chooser = Android.Content.Intent.CreateChooser(intent, $"Сохранить {filename}");
-            chooser.AddFlags(Android.Content.ActivityFlags.NewTask);
+        var chooser = Android.Content.Intent.CreateChooser(intent, $"Сохранить {filename}") ?? intent;
+        chooser.AddFlags(Android.Content.ActivityFlags.NewTask);
 
-            Android.App.Application.Context.StartActivity(chooser);
-        }
-        catch { }
+        Android.App.Application.Context.StartActivity(chooser);
 #endif
     }
 
