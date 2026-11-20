@@ -393,6 +393,7 @@ public partial class MainPage : ContentPage
 
     protected override bool OnBackButtonPressed()
     {
+
         if (string.IsNullOrEmpty(_currentAppName) && _launcherSettingsOpen)
         {
             _launcherSettingsOpen = false;
@@ -710,7 +711,10 @@ public partial class MainPage : ContentPage
             e.Cancel = true;
             var appName = e.Url.Replace("app://", "");
             if (appName == "clear_cache")
-                ClearAllCache();
+            {
+                if (IsLauncherPageActive() && !_isLaunching)
+                    ClearAllCache();
+            }
             else if (appName == "stop_gps")
                 StopNativeGPS();
             else if (appName == "start_gps")
@@ -719,7 +723,7 @@ public partial class MainPage : ContentPage
                 StartCompass();
             else if (appName == "stop_compass")
                 StopCompass();
-            else
+            else if (IsLauncherPageActive())
                 LaunchApp(appName);
         }
         else if (e.Url.StartsWith("uart://write?"))
@@ -1177,7 +1181,7 @@ public partial class MainPage : ContentPage
 
     private async void LaunchApp(string appName)
     {
-        if (_isLaunching) return;
+        if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) return;
         _isLaunching = true;
         bool navigated = false;
         try
