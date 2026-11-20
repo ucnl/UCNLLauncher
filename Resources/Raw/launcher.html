@@ -3,8 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="color-scheme" content="light dark">
     <title>UCNL Tools Launcher</title>
+    <script>
+        (function () {
+            var root = document.documentElement;
+            try {
+                root.dataset.theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+            } catch (e) {
+                root.dataset.theme = 'dark';
+            }
+        })();
+    </script>
     <style>
+        :root[data-theme="dark"] {
+            --bg-1: #1a1a2e;
+            --bg-2: #16213e;
+            --bg-3: #0f3460;
+            --text: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.7);
+            --link: rgba(144, 202, 249, 0.7);
+            --card-bg: rgba(255, 255, 255, 0.08);
+            --card-bg-active: rgba(255, 255, 255, 0.15);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --card-shadow: none;
+            --icon-1: #667eea;
+            --icon-2: #764ba2;
+            --desc: rgba(255, 255, 255, 0.5);
+            --arrow: rgba(255, 255, 255, 0.3);
+            --sub-bg: rgba(255, 255, 255, 0.05);
+            --sub-bg-active: rgba(255, 255, 255, 0.12);
+            --sub-border: rgba(255, 255, 255, 0.08);
+            --sub-desc: rgba(255, 255, 255, 0.4);
+            --status-bg: rgba(255, 255, 255, 0.05);
+            --status-text: rgba(255, 255, 255, 0.6);
+            --dot-off: #ff6b6b;
+            --dot-on: #51cf66;
+            --tap-highlight: transparent;
+        }
+
+        :root[data-theme="light"] {
+            --bg-1: #eef2ff;
+            --bg-2: #e3e9f8;
+            --bg-3: #cfdcf5;
+            --text: #1a1a2e;
+            --text-muted: #4a5068;
+            --link: #1f5fbf;
+            --card-bg: rgba(255, 255, 255, 0.72);
+            --card-bg-active: rgba(255, 255, 255, 0.95);
+            --card-border: rgba(26, 26, 46, 0.12);
+            --card-shadow: 0 1px 2px rgba(26, 26, 46, 0.06), 0 4px 16px rgba(76, 81, 191, 0.08);
+            --icon-1: #667eea;
+            --icon-2: #764ba2;
+            --desc: #4f5570;
+            --arrow: rgba(26, 26, 46, 0.4);
+            --sub-bg: rgba(255, 255, 255, 0.55);
+            --sub-bg-active: rgba(255, 255, 255, 0.9);
+            --sub-border: rgba(26, 26, 46, 0.1);
+            --sub-desc: #5a6078;
+            --status-bg: rgba(255, 255, 255, 0.6);
+            --status-text: #3f4560;
+            --dot-off: #e03131;
+            --dot-on: #2f9e44;
+            --tap-highlight: transparent;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,7 +76,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background: linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 50%, var(--bg-3) 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -28,7 +91,7 @@
 
         .header {
             text-align: center;
-            color: white;
+            color: var(--text);
             margin-bottom: 40px;
         }
 
@@ -40,7 +103,12 @@
 
             .header p {
                 font-size: 14px;
-                opacity: 0.7;
+                color: var(--text-muted);
+            }
+
+            .header a {
+                color: var(--link);
+                text-decoration: none;
             }
 
         .apps-grid {
@@ -50,9 +118,10 @@
         }
 
         .app-card {
-            background: rgba(255, 255, 255, 0.08);
+            background: var(--card-bg);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--card-border);
+            box-shadow: var(--card-shadow);
             border-radius: 20px;
             padding: 24px;
             display: flex;
@@ -61,18 +130,18 @@
             cursor: pointer;
             transition: all 0.3s ease;
             user-select: none;
-            -webkit-tap-highlight-color: transparent;
+            -webkit-tap-highlight-color: var(--tap-highlight);
         }
 
             .app-card:active {
                 transform: scale(0.98);
-                background: rgba(255, 255, 255, 0.15);
+                background: var(--card-bg-active);
             }
 
         .app-icon {
             width: 56px;
             height: 56px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--icon-1) 0%, var(--icon-2) 100%);
             border-radius: 16px;
             display: flex;
             align-items: center;
@@ -88,17 +157,17 @@
         .app-name {
             font-size: 18px;
             font-weight: 600;
-            color: white;
+            color: var(--text);
             margin-bottom: 4px;
         }
 
         .app-desc {
             font-size: 13px;
-            color: rgba(255, 255, 255, 0.5);
+            color: var(--desc);
         }
 
         .app-arrow {
-            color: rgba(255, 255, 255, 0.3);
+            color: var(--arrow);
             font-size: 20px;
             transition: transform 0.3s ease;
         }
@@ -107,7 +176,6 @@
             transform: rotate(90deg);
         }
 
-        /* Стили для подменю */
         .submenu {
             max-height: 0;
             overflow: hidden;
@@ -123,8 +191,8 @@
             }
 
         .submenu-item {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--sub-bg);
+            border: 1px solid var(--sub-border);
             border-radius: 12px;
             padding: 14px 18px;
             display: flex;
@@ -135,7 +203,7 @@
         }
 
             .submenu-item:active {
-                background: rgba(255, 255, 255, 0.12);
+                background: var(--sub-bg-active);
                 transform: scale(0.98);
             }
 
@@ -147,18 +215,18 @@
         .submenu-name {
             font-size: 14px;
             font-weight: 500;
-            color: white;
+            color: var(--text);
             flex: 1;
         }
 
         .submenu-desc {
             font-size: 11px;
-            color: rgba(255, 255, 255, 0.4);
+            color: var(--sub-desc);
             margin-top: 2px;
         }
 
         .submenu-arrow {
-            color: rgba(255, 255, 255, 0.3);
+            color: var(--arrow);
             font-size: 16px;
         }
 
@@ -166,9 +234,9 @@
             text-align: center;
             margin-top: 30px;
             padding: 12px;
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--status-bg);
             border-radius: 12px;
-            color: rgba(255, 255, 255, 0.6);
+            color: var(--status-text);
             font-size: 13px;
         }
 
@@ -178,24 +246,28 @@
             height: 8px;
             border-radius: 50%;
             margin-right: 8px;
-            background: #ff6b6b;
+            background: var(--dot-off);
         }
 
             .status-dot.connected {
-                background: #51cf66;
+                background: var(--dot-on);
             }
+
+        .status-bar.clear-cache {
+            margin-top: 16px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>⚡ UCNL Launcher</h1>
-            <p>Утилиты для работы с оборудованием <a href="https://docs.unavlab.com" target="_blank" style="color: #90caf9; text-decoration: none;">UC&amp;NL</a></p>
+            <p>Утилиты для работы с оборудованием <a href="https://docs.unavlab.com" target="_blank">UC&amp;NL</a></p>
         </div>
 
         <div class="apps-grid">
 
-            <!-- Группа Zima2 -->
             <div>
                 <div class="app-card" onclick="toggleSubmenu('zima2-submenu', this)">
                     <div class="app-icon">🐙</div>
@@ -225,7 +297,6 @@
                 </div>
             </div>
 
-            <!-- Группа uWave -->
             <div>
                 <div class="app-card" onclick="toggleSubmenu('uwave-submenu', this)">
                     <div class="app-icon">🌊</div>
@@ -265,7 +336,6 @@
                 <div class="app-arrow">→</div>
             </div>
 
-            <!-- Группа Утилиты -->
             <div>
                 <div class="app-card" onclick="toggleSubmenu('utils-submenu', this)">
                     <div class="app-icon">🔧</div>
@@ -305,21 +375,19 @@
             Загрузка приложений...
         </div>
 
-        <div class="status-bar" style="margin-top: 16px; cursor: pointer;" onclick="confirmClearCache()">
+        <div class="status-bar clear-cache" onclick="confirmClearCache()">
             🗑 Очистить кэш приложений
         </div>
 
     </div>
 
     <script>
-        // Функция для переключения подменю
         window.toggleSubmenu = function (submenuId, cardElement) {
             const submenu = document.getElementById(submenuId);
             if (submenu) {
                 submenu.classList.toggle('active');
                 cardElement.classList.toggle('expanded');
 
-                // Закрываем другие открытые подменю
                 const allSubmenus = document.querySelectorAll('.submenu.active');
                 const allCards = document.querySelectorAll('.app-card.expanded');
 
