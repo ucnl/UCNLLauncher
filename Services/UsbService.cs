@@ -65,7 +65,7 @@ public class UsbService
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
-            return await ConnectCoreAsync(portId, baudRate, null, userInitiated).ConfigureAwait(false);
+            return await ConnectCoreAsync(portId, baudRate, null, userInitiated, false).ConfigureAwait(false);
         }
         finally
         {
@@ -93,7 +93,7 @@ public class UsbService
 
             ClosePortCore(portId);
             await Task.Delay(300).ConfigureAwait(false);
-            return await ConnectCoreAsync(portId, targetBaud, preferred, false).ConfigureAwait(false);
+            return await ConnectCoreAsync(portId, targetBaud, preferred, false, true).ConfigureAwait(false);
         }
         finally
         {
@@ -136,7 +136,7 @@ public class UsbService
                 if (!_desiredBaud.TryGetValue(portId, out baud)) return false;
                 preferred = _lastDevice.GetValueOrDefault(portId);
             }
-            return await ConnectCoreAsync(portId, baud, preferred, false).ConfigureAwait(false);
+            return await ConnectCoreAsync(portId, baud, preferred, false, true).ConfigureAwait(false);
         }
         finally
         {
@@ -171,7 +171,7 @@ public class UsbService
         return detached.Count > 0;
     }
 
-    private async Task<bool> ConnectCoreAsync(int portId, int baudRate, string? preferredDevice, bool userInitiated)
+    private async Task<bool> ConnectCoreAsync(int portId, int baudRate, string? preferredDevice, bool userInitiated, bool respectReservations)
     {
         ClosePortCore(portId);
 
@@ -199,6 +199,8 @@ public class UsbService
             {
                 if (_ports.Values.Any(p => p.Device.DeviceId == device.DeviceId))
                     continue;
+                if (respectReservations && IsReservedByOtherPort(portId, device.DeviceName))
+                    continue;
             }
 
             if (await TryOpenDeviceAsync(portId, device, baudRate, userInitiated).ConfigureAwait(false))
@@ -206,6 +208,9 @@ public class UsbService
         }
         return false;
     }
+
+    private bool IsReservedByOtherPort(int portId, string deviceName) =>
+        _lastDevice.Any(kv => kv.Key != portId && kv.Value == deviceName);
 
     private async Task<bool> TryOpenDeviceAsync(int portId, UsbDevice device, int baudRate, bool userInitiated)
     {
@@ -253,6 +258,8 @@ public class UsbService
                     Device = device,
                     BaudRate = baudRate
                 };
+                foreach (var other in _lastDevice.Where(kv => kv.Key != portId && kv.Value == device.DeviceName).Select(kv => kv.Key).ToList())
+                    _lastDevice.Remove(other);
                 _lastDevice[portId] = device.DeviceName;
             }
 
@@ -412,6 +419,7 @@ public class UsbService
             all = _ports.Values.ToList();
             _ports.Clear();
             _desiredBaud.Clear();
+            _lastDevice.Clear();
         }
 
         foreach (var p in all)
