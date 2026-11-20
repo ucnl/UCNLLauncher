@@ -12,6 +12,7 @@ public partial class MainPage : ContentPage
     private bool _isAppLoaded;
     private bool _usbPollingStarted;
     private CancellationTokenSource? _readLoopCts;
+    private CancellationTokenSource? _usbWatcherCts;
     private readonly HttpClient _httpClient;
     private string _currentAppName = "";
 
@@ -436,7 +437,7 @@ public partial class MainPage : ContentPage
             var parts = raw.Split('|', 2);
             int portId = parts.Length > 1 && int.TryParse(parts[0], out var id) ? id : 0;
             var data = parts.Length > 1 ? parts[1] : raw;
-            _ = Task.Run(() => _usbService.WriteAsync(portId, data));
+            _usbService.Write(portId, data);
         }
         else if (e.Url.StartsWith("uart://setbaud?"))
         {
@@ -446,12 +447,7 @@ public partial class MainPage : ContentPage
             int portId = parts.Length > 0 && int.TryParse(parts[0], out var id) ? id : 0;
             int baudRate = parts.Length > 1 && int.TryParse(parts[1], out var br) ? br : 9600;
 
-            _ = Task.Run(async () =>
-            {
-                _usbService.ClosePort(portId);
-                await Task.Delay(300);
-                await _usbService.TryConnectAsync(portId, baudRate);
-            });
+            _ = _usbService.SetBaudAsync(portId, baudRate);
         }
         else if (e.Url.StartsWith("file://save?"))
         {
@@ -463,7 +459,7 @@ public partial class MainPage : ContentPage
             e.Cancel = true;
             var raw = Uri.UnescapeDataString(e.Url.Replace("uart://close?", ""));
             int portId = int.TryParse(raw, out var id) ? id : 0;
-            _usbService.ClosePort(portId);
+            _ = _usbService.CloseAsync(portId);
         }
     }
 
@@ -611,34 +607,61 @@ public partial class MainPage : ContentPage
     ";
         await MainWebView.EvaluateJavaScriptAsync(script);
         bool hasDevice = await _usbService.TryConnectAsync(0, 9600);
+        if (!string.IsNullOrEmpty(_currentAppName)) return;
         await MainWebView.EvaluateJavaScriptAsync($"updateUsbStatus({hasDevice.ToString().ToLower()})");
-        StartUsbWatcher();
+        StartUsbWatcher(hasDevice);
     }
 
-    private void StartUsbWatcher()
+    private void StartUsbWatcher(bool initialState)
     {
-        Task.Run(async () =>
+        StopUsbWatcher();
+        var cts = new CancellationTokenSource();
+        _usbWatcherCts = cts;
+        var token = cts.Token;
+
+        _ = Task.Run(async () =>
         {
-            while (true)
+            bool lastState = initialState;
+            while (!token.IsCancellationRequested)
             {
                 try
                 {
-                    await Task.Delay(3000);
+                    await Task.Delay(3000, token);
 
-                    bool nowConnected = _usbService.IsAnyPortOpen;
+                    _usbService.CloseDetachedPorts();
+                    bool connected = _usbService.IsAnyPortOpen
+                        || await _usbService.TryConnectAsync(0, 9600);
 
-                    if (!nowConnected)
+                    if (token.IsCancellationRequested) break;
+                    if (connected == lastState) continue;
+                    lastState = connected;
+
+                    MainThread.BeginInvokeOnMainThread(async () =>
                     {
-                        bool connected = await _usbService.TryConnectAsync(0, 9600);
-                        MainThread.BeginInvokeOnMainThread(async () =>
+                        if (token.IsCancellationRequested) return;
+                        try
                         {
                             await MainWebView.EvaluateJavaScriptAsync($"updateUsbStatus({connected.ToString().ToLower()})");
-                        });
-                    }
+                        }
+                        catch { }
+                    });
                 }
-                catch { break; }
+                catch (OperationCanceledException) { break; }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[UsbWatcher] {ex.Message}");
+                }
             }
         });
+    }
+
+    private void StopUsbWatcher()
+    {
+        var cts = _usbWatcherCts;
+        _usbWatcherCts = null;
+        if (cts == null) return;
+        try { cts.Cancel(); } catch { }
+        cts.Dispose();
     }
 
     private async Task InjectDeviceAdapter()
@@ -686,50 +709,51 @@ public partial class MainPage : ContentPage
 
     private async Task PollPort(CancellationToken token, int portId)
     {
+        var nextCheck = DateTime.MinValue;
+
         while (!token.IsCancellationRequested)
         {
             try
             {
+                if (DateTime.UtcNow >= nextCheck)
+                {
+                    nextCheck = DateTime.UtcNow.AddSeconds(2);
+                    _usbService.CloseDetachedPorts();
+                    if (!_usbService.IsPortOpen(portId))
+                        await _usbService.EnsureOpenAsync(portId);
+                }
+
                 if (!_usbService.IsPortOpen(portId))
                 {
                     await Task.Delay(500, token);
                     continue;
                 }
 
-                string? data = null;
-                try
-                {
-                    data = await _usbService.ReadAsync(portId, 100);
-                }
-                catch
-                {
-                    await Task.Delay(500, token);
+                var data = await _usbService.ReadAsync(portId, 100);
+                if (data == null || data.Length == 0 || token.IsCancellationRequested)
                     continue;
-                }
 
-                if (!string.IsNullOrEmpty(data))
+                string script =
+                    $"(function(){{var c=window._stubController{portId};if(!c)return;" +
+                    $"var s=atob('{Convert.ToBase64String(data)}');var a=new Uint8Array(s.length);" +
+                    "for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);" +
+                    "try{c.enqueue(a);}catch(e){}})()";
+
+                MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    string escaped = data.Replace("\\", "\\\\").Replace("'", "\\'")
-                        .Replace("\n", "\\n").Replace("\r", "");
-
-                    MainThread.BeginInvokeOnMainThread(() =>
+                    try
                     {
-                        try
-                        {
-                            if (MainWebView.IsLoaded && MainWebView.Handler?.PlatformView != null)
-                            {
-                                MainWebView.EvaluateJavaScriptAsync(
-                                    $"if(window._stubController{portId}) window._stubController{portId}.enqueue(new TextEncoder().encode('{escaped}'))");
-                            }
-                        }
-                        catch { }
-                    });
-                }
+                        if (!token.IsCancellationRequested && MainWebView.IsLoaded && MainWebView.Handler?.PlatformView != null)
+                            _ = MainWebView.EvaluateJavaScriptAsync(script);
+                    }
+                    catch { }
+                });
             }
-            catch (TaskCanceledException) { break; }
+            catch (OperationCanceledException) { break; }
             catch
             {
-                await Task.Delay(1000, token);
+                try { await Task.Delay(1000, token); }
+                catch (OperationCanceledException) { break; }
             }
         }
     }
@@ -906,19 +930,19 @@ public partial class MainPage : ContentPage
 
             if (!_usbService.IsAnyPortOpen)
             {
-                if (!await _usbService.TryConnectAsync(0, 9600))
+                if (!await _usbService.TryConnectAsync(0, 9600, userInitiated: true))
                 {
                     System.Diagnostics.Debug.WriteLine($"[LaunchApp] {appName}: AZM не найден, работаем без устройства");
                 }
             }
-            _ = _usbService.TryConnectAsync(1, 0);
+            _ = _usbService.TryConnectAsync(1, 9600, userInitiated: true);
         }
         else if (appName == "uGNSSMonitor")
         {
             _usbService.CloseAll();
             await Task.Delay(300);
 
-            if (!await _usbService.TryConnectAsync(0))
+            if (!await _usbService.TryConnectAsync(0, userInitiated: true))
             {
                 System.Diagnostics.Debug.WriteLine("[LaunchApp] uGNSSMonitor: USB не найден, работаем во встроенном режиме");
             }
@@ -927,19 +951,19 @@ public partial class MainPage : ContentPage
         {
             if (!_usbService.IsAnyPortOpen)
             {
-                if (!await _usbService.TryConnectAsync(0, 9600))
+                if (!await _usbService.TryConnectAsync(0, 9600, userInitiated: true))
                 {
                     System.Diagnostics.Debug.WriteLine("[LaunchApp] uWaveSuite: uWave не найден, работаем без устройства");
                 }
             }
-            _ = _usbService.TryConnectAsync(1, 0);
+            _ = _usbService.TryConnectAsync(1, 9600, userInitiated: true);
         }
         else
         {
             // uWaver, RedPhoneDXConfig, uConsole — без устройства работать не могут
             if (!_usbService.IsAnyPortOpen)
             {
-                if (!await _usbService.TryConnectAsync(0, 9600))
+                if (!await _usbService.TryConnectAsync(0, 9600, userInitiated: true))
                 {
                     LoadingIndicator.IsVisible = false;
                     await DisplayAlert("USB", "Устройство не найдено", "OK");
@@ -1018,6 +1042,7 @@ public partial class MainPage : ContentPage
 
         System.Diagnostics.Debug.WriteLine($"[LaunchApp] Opening: {fileUrl}");
 
+        StopUsbWatcher();
         MainWebView.Source = fileUrl;
     }
 
@@ -1071,6 +1096,7 @@ public partial class MainPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        StopUsbWatcher();
         _readLoopCts?.Cancel();
         StopNativeGPS();
         StopCompass();
