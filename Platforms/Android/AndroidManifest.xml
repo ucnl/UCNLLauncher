@@ -11,13 +11,6 @@
 	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 	<application android:allowBackup="true" android:icon="@mipmap/appicon" android:supportsRtl="true" android:label="UC&amp;NL Launcher" android:theme="@style/MainTheme" android:requestLegacyExternalStorage="true">
-		<activity android:name=".MainActivity" android:exported="true">
-			<!-- Ваш существующий фильтр для USB -->
-			<intent-filter>
-				<action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
-			</intent-filter>
-			<meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/device_filter" />
-		</activity>
 		<provider
     android:name="androidx.core.content.FileProvider"
     android:authorities="com.unavlab.ucnllauncher.fileprovider"
