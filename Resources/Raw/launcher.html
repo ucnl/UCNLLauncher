@@ -1,10 +1,10 @@
 ﻿<!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="color-scheme" content="light dark">
-    <title>UCNL Tools Launcher</title>
+    <title>UCNL Launcher</title>
     <script>
         (function () {
             var root = document.documentElement;
@@ -563,12 +563,12 @@
     <div class="container">
         <div class="header">
             <div class="header-actions">
-                <button type="button" class="icon-btn" id="settingsButton" aria-label="Настройки" aria-haspopup="dialog" aria-controls="settingsPanel" aria-expanded="false">
+                <button type="button" class="icon-btn" id="settingsButton" data-i18n-aria-label="settings.open" aria-haspopup="dialog" aria-controls="settingsPanel" aria-expanded="false">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
                 </button>
             </div>
             <h1><span aria-hidden="true">⚡</span> <span>UCNL Launcher</span></h1>
-            <p><span>Утилиты для работы с оборудованием</span> <a href="https://docs.unavlab.com" target="_blank">UC&amp;NL</a></p>
+            <p><span data-i18n="launcher.subtitle"></span> <a href="https://docs.unavlab.com" target="_blank">UC&amp;NL</a></p>
         </div>
 
         <div class="apps-grid">
@@ -578,7 +578,7 @@
                     <div class="app-icon">🐙</div>
                     <div class="app-info">
                         <div class="app-name">Zima2</div>
-                        <div class="app-desc">Приложения для работы с системой Zima2</div>
+                        <div class="app-desc" data-i18n="launcher.app.zima2.desc"></div>
                     </div>
                     <div class="app-arrow">→</div>
                 </div>
@@ -587,7 +587,7 @@
                         <span class="submenu-icon">🐙</span>
                         <div class="submenu-info">
                             <div class="submenu-name">AzimuthWebSuite</div>
-                            <div class="submenu-desc">Работа с системой Zima2 USBL</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.azimuth.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -595,7 +595,7 @@
                         <span class="submenu-icon">🎯</span>
                         <div class="submenu-info">
                             <div class="submenu-name">AzimuthLBLX</div>
-                            <div class="submenu-desc">Виртуальная длинная база</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.lblx.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -607,7 +607,7 @@
                     <div class="app-icon">🌊</div>
                     <div class="app-info">
                         <div class="app-name">uWave</div>
-                        <div class="app-desc">Приложения для работы с модемами uWave</div>
+                        <div class="app-desc" data-i18n="launcher.app.uwave.desc"></div>
                     </div>
                     <div class="app-arrow">→</div>
                 </div>
@@ -616,7 +616,7 @@
                         <span class="submenu-icon">🌊</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uWaveSuite</div>
-                            <div class="submenu-desc">Трекинг, USBL, VLBL для модемов uWave</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.uwavesuite.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -624,7 +624,7 @@
                         <span class="submenu-icon">📡</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uWaver</div>
-                            <div class="submenu-desc">Демонстрация протокола uWave</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.uwaver.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -636,7 +636,7 @@
                 <div class="app-icon">📱</div>
                 <div class="app-info">
                     <div class="app-name">RedPhoneDX Config</div>
-                    <div class="app-desc">Конфигуратор водолазных станций связи RedPhone-DX</div>
+                    <div class="app-desc" data-i18n="launcher.app.redphone.desc"></div>
                 </div>
                 <div class="app-arrow">→</div>
             </div>
@@ -645,8 +645,8 @@
                 <div class="app-card" onclick="toggleSubmenu('utils-submenu', this)">
                     <div class="app-icon">🔧</div>
                     <div class="app-info">
-                        <div class="app-name">Утилиты</div>
-                        <div class="app-desc">Вспомогательные инструменты</div>
+                        <div class="app-name" data-i18n="launcher.utils.name"></div>
+                        <div class="app-desc" data-i18n="launcher.utils.desc"></div>
                     </div>
                     <div class="app-arrow">→</div>
                 </div>
@@ -655,7 +655,7 @@
                         <span class="submenu-icon">📡</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uGNSS-Monitor</div>
-                            <div class="submenu-desc">Монитор GNSS-приемника</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.ugnss.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -663,7 +663,7 @@
                         <span class="submenu-icon">💻</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uConsole</div>
-                            <div class="submenu-desc">Универсальная консоль</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.uconsole.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -673,7 +673,7 @@
 
         <div class="status-bar">
             <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">Проверка USB...</span>
+            <span id="statusText" data-i18n="launcher.usb.checking"></span>
         </div>
 
         <div id="syncStatus" class="status-bar" style="display: none; margin-top: 16px; background: rgba(80, 180, 255, 0.15); color: rgba(255, 255, 255, 0.9);">
@@ -687,26 +687,26 @@
     <section class="sheet" id="settingsPanel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-hidden="true">
         <div class="sheet-handle" aria-hidden="true"></div>
         <div class="sheet-header">
-            <h2 id="settingsTitle">Настройки</h2>
-            <button type="button" class="icon-btn" id="settingsClose" aria-label="Закрыть">
+            <h2 id="settingsTitle" data-i18n="settings.title"></h2>
+            <button type="button" class="icon-btn" id="settingsClose" data-i18n-aria-label="settings.close">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12" /></svg>
             </button>
         </div>
         <div class="sheet-body">
             <div class="setting-group">
-                <h3 id="themeLabel">Тема</h3>
+                <h3 id="themeLabel" data-i18n="settings.theme"></h3>
                 <div class="segmented" id="themeOptions" role="group" aria-labelledby="themeLabel">
-                    <button type="button" class="segment" data-theme-value="system" aria-pressed="false"><span>Системная</span></button>
-                    <button type="button" class="segment" data-theme-value="light" aria-pressed="false"><span>Светлая</span></button>
-                    <button type="button" class="segment" data-theme-value="dark" aria-pressed="false"><span>Тёмная</span></button>
+                    <button type="button" class="segment" data-theme-value="system" aria-pressed="false"><span data-i18n="settings.theme.system"></span></button>
+                    <button type="button" class="segment" data-theme-value="light" aria-pressed="false"><span data-i18n="settings.theme.light"></span></button>
+                    <button type="button" class="segment" data-theme-value="dark" aria-pressed="false"><span data-i18n="settings.theme.dark"></span></button>
                 </div>
             </div>
 
             <div class="setting-group">
-                <h3 id="languageLabel">Язык</h3>
+                <h3 id="languageLabel" data-i18n="settings.language"></h3>
                 <div class="option-list" id="languageList" role="group" aria-labelledby="languageLabel">
                     <button type="button" class="option" data-lang-value="system" aria-pressed="false">
-                        <span class="option-label">Системный</span>
+                        <span class="option-label" data-i18n="settings.language.system"></span>
                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5" /></svg>
                     </button>
                 </div>
@@ -715,13 +715,35 @@
             <div class="setting-group">
                 <button type="button" class="danger-btn" id="clearCacheButton">
                     <span aria-hidden="true">🗑</span>
-                    <span>Очистить кэш приложений</span>
+                    <span data-i18n="settings.cache.clear"></span>
                 </button>
             </div>
         </div>
     </section>
 
     <script>
+        var ucnlStrings = {};
+        var ucnlStringsLoaded = false;
+
+        function t(key) {
+            var value = ucnlStrings[key];
+            return typeof value === 'string' ? value : key;
+        }
+
+        function ucnlTranslate(scope) {
+            if (!ucnlStringsLoaded) return;
+            var nodes = (scope || document).querySelectorAll('[data-i18n], [data-i18n-aria-label], [data-i18n-title]');
+            for (var i = 0; i < nodes.length; i++) {
+                var node = nodes[i];
+                var key = node.getAttribute('data-i18n');
+                if (key) node.textContent = t(key);
+                key = node.getAttribute('data-i18n-aria-label');
+                if (key) node.setAttribute('aria-label', t(key));
+                key = node.getAttribute('data-i18n-title');
+                if (key) node.setAttribute('title', t(key));
+            }
+        }
+
         window.toggleSubmenu = function (submenuId, cardElement) {
             const submenu = document.getElementById(submenuId);
             if (submenu) {
@@ -757,17 +779,13 @@
             var dot = document.getElementById('statusDot');
             var text = document.getElementById('statusText');
 
-            if (connected) {
-                dot.className = 'status-dot connected';
-                text.textContent = 'USB устройство подключено';
-            } else {
-                dot.className = 'status-dot';
-                text.textContent = 'USB устройство не найдено';
-            }
+            dot.className = connected ? 'status-dot connected' : 'status-dot';
+            text.setAttribute('data-i18n', connected ? 'launcher.usb.connected' : 'launcher.usb.disconnected');
+            ucnlTranslate(text.parentNode);
         };
 
         window.confirmClearCache = function () {
-            if (confirm('Очистить кэш всех приложений? После очистки потребуется интернет для первого запуска.')) {
+            if (confirm(t('launcher.cache.confirm'))) {
                 window.location.href = 'app://clear_cache';
             }
         };
@@ -783,6 +801,7 @@
             var languageList = document.getElementById('languageList');
             var clearCacheButton = document.getElementById('clearCacheButton');
             var state = { themePref: 'system', langPref: 'system' };
+            var languagesSignature = '';
             var settingsOpen = false;
             var lastFocus = null;
             var revealTimer = null;
@@ -835,6 +854,37 @@
             function renderSettings() {
                 markPressed(themeOptions, 'data-theme-value', state.themePref);
                 markPressed(languageList, 'data-lang-value', state.langPref);
+            }
+
+            function renderLanguages(languages) {
+                if (!Array.isArray(languages)) return;
+                var signature = JSON.stringify(languages);
+                if (signature === languagesSignature) return;
+                languagesSignature = signature;
+
+                var systemButton = languageList.querySelector('[data-lang-value="system"]');
+                var checkIcon = systemButton ? systemButton.querySelector('svg') : null;
+                var existing = languageList.querySelectorAll('[data-lang-value]');
+                for (var i = 0; i < existing.length; i++) {
+                    if (existing[i] !== systemButton) languageList.removeChild(existing[i]);
+                }
+
+                for (var j = 0; j < languages.length; j++) {
+                    var item = languages[j];
+                    if (!item || typeof item.code !== 'string' || !item.code) continue;
+                    var button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'option';
+                    button.setAttribute('data-lang-value', item.code);
+                    button.setAttribute('aria-pressed', 'false');
+                    button.setAttribute('lang', item.code);
+                    var label = document.createElement('span');
+                    label.className = 'option-label';
+                    label.textContent = typeof item.name === 'string' && item.name ? item.name : item.code;
+                    button.appendChild(label);
+                    if (checkIcon) button.appendChild(checkIcon.cloneNode(true));
+                    languageList.appendChild(button);
+                }
             }
 
             function focusableInPanel() {
@@ -937,6 +987,13 @@
                 setTheme(cfg.theme === 'light' || cfg.theme === 'dark' ? cfg.theme : systemTheme());
                 if (typeof cfg.themePref === 'string') state.themePref = cfg.themePref;
                 if (typeof cfg.langPref === 'string') state.langPref = cfg.langPref;
+                if (typeof cfg.lang === 'string' && cfg.lang) root.setAttribute('lang', cfg.lang);
+                if (cfg.strings && typeof cfg.strings === 'object') {
+                    ucnlStrings = cfg.strings;
+                    ucnlStringsLoaded = true;
+                }
+                renderLanguages(cfg.languages);
+                ucnlTranslate(document);
                 renderSettings();
                 reveal();
             };
