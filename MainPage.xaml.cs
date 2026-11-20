@@ -10,6 +10,7 @@ public partial class MainPage : ContentPage
     private bool _isAppLoaded;
     private bool _usbPollingStarted;
     private bool _isLaunching;
+    private bool _launcherSettingsOpen;
     private CancellationTokenSource? _readLoopCts;
     private CancellationTokenSource? _usbWatcherCts;
     private string _currentAppName = "";
@@ -69,6 +70,103 @@ public partial class MainPage : ContentPage
     private void OnEffectiveThemeChanged(object? sender, string theme)
     {
         UpdateWebViewBaseColor();
+        PushLauncherConfig();
+    }
+
+    public void PushLauncherConfig()
+    {
+        if (!MainThread.IsMainThread)
+        {
+            MainThread.BeginInvokeOnMainThread(PushLauncherConfig);
+            return;
+        }
+        if (!IsLauncherPageActive()) return;
+
+        string json;
+        try
+        {
+            json = BuildLauncherConfigJson();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[PushLauncherConfig] {ex.Message}");
+            return;
+        }
+        _ = EvaluateLauncherScriptAsync($"window.ucnlApplyConfig&&window.ucnlApplyConfig({json})");
+    }
+
+    private static string BuildLauncherConfigJson()
+    {
+        var buffer = new System.Buffers.ArrayBufferWriter<byte>();
+        using (var writer = new System.Text.Json.Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            WriteLauncherConfig(writer);
+            writer.WriteEndObject();
+        }
+        return System.Text.Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
+
+    private static void WriteLauncherConfig(System.Text.Json.Utf8JsonWriter writer)
+    {
+        writer.WriteString("theme", ThemeService.Current.EffectiveTheme);
+        writer.WriteString("themePref", ThemeService.Current.Preference);
+        writer.WriteString("langPref", AppSettings.Language);
+    }
+
+    private async Task EvaluateLauncherScriptAsync(string script)
+    {
+        try
+        {
+            await MainWebView.EvaluateJavaScriptAsync(script);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[EvaluateLauncherScript] {ex.Message}");
+        }
+    }
+
+    private static readonly HashSet<string> LauncherCommands = new(StringComparer.Ordinal)
+    {
+        "ready", "set_theme", "set_lang", "settings_open", "settings_closed"
+    };
+
+    private static bool TryParseLauncherCommand(string url, out string command, out string argument)
+    {
+        command = "";
+        argument = "";
+        const string prefix = "app://";
+        if (!url.StartsWith(prefix, StringComparison.Ordinal)) return false;
+
+        var body = url.Substring(prefix.Length);
+        var queryIndex = body.IndexOf('?');
+        var name = (queryIndex >= 0 ? body.Substring(0, queryIndex) : body).TrimEnd('/');
+        if (!LauncherCommands.Contains(name)) return false;
+
+        command = name;
+        argument = queryIndex >= 0 ? Uri.UnescapeDataString(body.Substring(queryIndex + 1)) : "";
+        return true;
+    }
+
+    private void HandleLauncherCommand(string command, string argument)
+    {
+        switch (command)
+        {
+            case "settings_open":
+                _launcherSettingsOpen = true;
+                return;
+            case "settings_closed":
+                _launcherSettingsOpen = false;
+                return;
+            case "set_theme":
+                ThemeService.Current.SetPreference(argument);
+                break;
+            case "set_lang":
+                if (AppSettings.IsValidLanguage(argument))
+                    AppSettings.Language = argument;
+                break;
+        }
+        PushLauncherConfig();
     }
 
     private void UpdateWebViewBaseColor()
@@ -256,12 +354,28 @@ public partial class MainPage : ContentPage
 
     protected override bool OnBackButtonPressed()
     {
+        if (string.IsNullOrEmpty(_currentAppName) && _launcherSettingsOpen)
+        {
+            _launcherSettingsOpen = false;
+            _ = EvaluateLauncherScriptAsync("window.ucnlCloseSettings&&window.ucnlCloseSettings(true)");
+            return true;
+        }
+
         if (!string.IsNullOrEmpty(_currentAppName))
         {
             OnBackClicked(null, EventArgs.Empty);
             return true;
         }
         return base.OnBackButtonPressed();
+    }
+
+    private const string LauncherPageUrl = "file:///android_asset/launcher.html";
+
+    private bool IsLauncherPageActive()
+    {
+        if (!string.IsNullOrEmpty(_currentAppName)) return false;
+        var url = (MainWebView.Handler?.PlatformView as Android.Webkit.WebView)?.Url;
+        return url != null && url.StartsWith(LauncherPageUrl, StringComparison.Ordinal);
     }
 
     private bool IsLocalPageActive()
@@ -505,6 +619,7 @@ public partial class MainPage : ContentPage
         _usbPollingStarted = false;
         _isLauncherLoaded = false;
         _isAppLoaded = false;
+        _launcherSettingsOpen = false;
         _currentAppName = "";
         Toolbar.IsVisible = false;
         UpdateWebViewBaseColor();
@@ -542,6 +657,14 @@ public partial class MainPage : ContentPage
         {
             e.Cancel = true;
             HandleFileSave(Uri.UnescapeDataString(e.Url.Replace("app://savefile?", "")));
+        }
+        else if (TryParseLauncherCommand(e.Url, out var launcherCommand, out var launcherArgument))
+        {
+            e.Cancel = true;
+            if (IsLauncherPageActive())
+                HandleLauncherCommand(launcherCommand, launcherArgument);
+            else
+                System.Diagnostics.Debug.WriteLine($"[OnNavigating] Launcher command '{launcherCommand}' from non-launcher page ignored");
         }
         else if (e.Url.StartsWith("app://"))
         {
@@ -606,6 +729,7 @@ public partial class MainPage : ContentPage
         {
             _isLauncherLoaded = true;
             Toolbar.IsVisible = false;
+            PushLauncherConfig();
             await Task.Delay(500);
             await InjectLauncherScript();
 

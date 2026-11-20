@@ -40,6 +40,24 @@
             --dot-off: #ff6b6b;
             --dot-on: #51cf66;
             --tap-highlight: transparent;
+            --accent: #5a67d8;
+            --on-accent: #ffffff;
+            --focus: #90caf9;
+            --label: rgba(255, 255, 255, 0.6);
+            --control-bg: rgba(255, 255, 255, 0.06);
+            --control-bg-active: rgba(255, 255, 255, 0.14);
+            --control-border: rgba(255, 255, 255, 0.12);
+            --control-text: rgba(255, 255, 255, 0.8);
+            --sheet-bg: #1d2442;
+            --sheet-border: rgba(255, 255, 255, 0.1);
+            --sheet-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+            --sheet-handle: rgba(255, 255, 255, 0.22);
+            --backdrop: rgba(5, 8, 20, 0.6);
+            --divider: rgba(255, 255, 255, 0.08);
+            --danger: #ff8787;
+            --danger-bg: rgba(255, 107, 107, 0.1);
+            --danger-bg-active: rgba(255, 107, 107, 0.2);
+            --danger-border: rgba(255, 107, 107, 0.3);
         }
 
         :root[data-theme="light"] {
@@ -66,6 +84,24 @@
             --dot-off: #e03131;
             --dot-on: #2f9e44;
             --tap-highlight: transparent;
+            --accent: #4c51bf;
+            --on-accent: #ffffff;
+            --focus: #1f5fbf;
+            --label: #4a5068;
+            --control-bg: rgba(26, 26, 46, 0.04);
+            --control-bg-active: rgba(26, 26, 46, 0.1);
+            --control-border: rgba(26, 26, 46, 0.14);
+            --control-text: #2f3450;
+            --sheet-bg: #f8faff;
+            --sheet-border: rgba(26, 26, 46, 0.08);
+            --sheet-shadow: 0 -8px 32px rgba(26, 26, 46, 0.18);
+            --sheet-handle: rgba(26, 26, 46, 0.2);
+            --backdrop: rgba(26, 26, 46, 0.35);
+            --divider: rgba(26, 26, 46, 0.1);
+            --danger: #c92a2a;
+            --danger-bg: rgba(224, 49, 49, 0.06);
+            --danger-bg-active: rgba(224, 49, 49, 0.14);
+            --danger-border: rgba(201, 42, 42, 0.3);
         }
 
         * {
@@ -253,17 +289,286 @@
                 background: var(--dot-on);
             }
 
-        .status-bar.clear-cache {
-            margin-top: 16px;
+        html:not(.ucnl-ready) body > * {
+            visibility: hidden;
+        }
+
+        html.theme-switching *,
+        html.theme-switching *::before,
+        html.theme-switching *::after {
+            transition: none !important;
+        }
+
+        button {
+            font: inherit;
+            color: inherit;
+            background: none;
+            border: 0;
             cursor: pointer;
+            -webkit-tap-highlight-color: var(--tap-highlight);
+        }
+
+            button:focus {
+                outline: none;
+            }
+
+            button:focus-visible {
+                outline: 2px solid var(--focus);
+                outline-offset: 2px;
+            }
+
+        .header-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 4px;
+        }
+
+        .icon-btn {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--control-bg);
+            border: 1px solid var(--control-border);
+            transition: background 0.2s ease;
+        }
+
+            .icon-btn:active {
+                background: var(--control-bg-active);
+            }
+
+            .icon-btn svg {
+                width: 22px;
+                height: 22px;
+                fill: none;
+                stroke: var(--text);
+                stroke-width: 1.8;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+
+        body.settings-open {
+            overflow: hidden;
+        }
+
+        .sheet-backdrop {
+            position: fixed;
+            inset: 0;
+            background: var(--backdrop);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+            z-index: 10;
+        }
+
+        body.settings-open .sheet-backdrop {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.25s ease;
+        }
+
+        .sheet {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 500px;
+            max-height: calc(100vh - 16px);
+            max-height: calc(100dvh - 16px);
+            display: flex;
+            flex-direction: column;
+            background: var(--sheet-bg);
+            color: var(--text);
+            border: 1px solid var(--sheet-border);
+            border-bottom: 0;
+            border-radius: 20px 20px 0 0;
+            box-shadow: var(--sheet-shadow);
+            transform: translateY(100%);
+            visibility: hidden;
+            transition: transform 0.3s ease, visibility 0s linear 0.3s;
+            z-index: 11;
+        }
+
+        body.settings-open .sheet {
+            transform: none;
+            visibility: visible;
+            transition: transform 0.3s ease;
+        }
+
+        .sheet-handle {
+            width: 40px;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--sheet-handle);
+            margin: 10px auto 0;
+            flex-shrink: 0;
+        }
+
+        .sheet-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 16px 8px 20px;
+            flex-shrink: 0;
+        }
+
+            .sheet-header h2 {
+                font-size: 20px;
+                font-weight: 600;
+            }
+
+        .sheet-body {
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            padding: 8px 20px calc(24px + env(safe-area-inset-bottom));
+        }
+
+        .setting-group {
+            padding: 16px 0;
+            border-top: 1px solid var(--divider);
+        }
+
+            .setting-group:first-child {
+                border-top: 0;
+                padding-top: 4px;
+            }
+
+            .setting-group h3 {
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+                color: var(--label);
+                margin-bottom: 12px;
+            }
+
+        .segmented {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 14px;
+            background: var(--control-bg);
+            border: 1px solid var(--control-border);
+        }
+
+        .segment {
+            flex: 1 1 0;
+            min-width: 0;
+            min-height: 44px;
+            padding: 8px 6px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--control-text);
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+            .segment span {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .segment[aria-pressed="true"] {
+                background: var(--accent);
+                color: var(--on-accent);
+                font-weight: 600;
+            }
+
+        .option-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            min-height: 48px;
+            padding: 10px 16px;
+            border-radius: 12px;
+            text-align: left;
+            font-size: 15px;
+            color: var(--text);
+            background: var(--control-bg);
+            border: 1px solid var(--control-border);
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+            .option:active {
+                background: var(--control-bg-active);
+            }
+
+            .option[aria-pressed="true"] {
+                border-color: var(--accent);
+            }
+
+            .option svg {
+                width: 20px;
+                height: 20px;
+                flex-shrink: 0;
+                fill: none;
+                stroke: var(--accent);
+                stroke-width: 2.4;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+                visibility: hidden;
+            }
+
+            .option[aria-pressed="true"] svg {
+                visibility: visible;
+            }
+
+        .danger-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            min-height: 48px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--danger);
+            background: var(--danger-bg);
+            border: 1px solid var(--danger-border);
+            transition: background 0.2s ease;
+        }
+
+            .danger-btn:active {
+                background: var(--danger-bg-active);
+            }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                transition: none !important;
+                animation: none !important;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>⚡ UCNL Launcher</h1>
-            <p>Утилиты для работы с оборудованием <a href="https://docs.unavlab.com" target="_blank">UC&amp;NL</a></p>
+            <div class="header-actions">
+                <button type="button" class="icon-btn" id="settingsButton" aria-label="Настройки" aria-haspopup="dialog" aria-controls="settingsPanel" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+                </button>
+            </div>
+            <h1><span aria-hidden="true">⚡</span> <span>UCNL Launcher</span></h1>
+            <p><span>Утилиты для работы с оборудованием</span> <a href="https://docs.unavlab.com" target="_blank">UC&amp;NL</a></p>
         </div>
 
         <div class="apps-grid">
@@ -375,11 +680,46 @@
             Загрузка приложений...
         </div>
 
-        <div class="status-bar clear-cache" onclick="confirmClearCache()">
-            🗑 Очистить кэш приложений
-        </div>
-
     </div>
+
+    <div class="sheet-backdrop" id="settingsBackdrop"></div>
+
+    <section class="sheet" id="settingsPanel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-hidden="true">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="sheet-header">
+            <h2 id="settingsTitle">Настройки</h2>
+            <button type="button" class="icon-btn" id="settingsClose" aria-label="Закрыть">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+        </div>
+        <div class="sheet-body">
+            <div class="setting-group">
+                <h3 id="themeLabel">Тема</h3>
+                <div class="segmented" id="themeOptions" role="group" aria-labelledby="themeLabel">
+                    <button type="button" class="segment" data-theme-value="system" aria-pressed="false"><span>Системная</span></button>
+                    <button type="button" class="segment" data-theme-value="light" aria-pressed="false"><span>Светлая</span></button>
+                    <button type="button" class="segment" data-theme-value="dark" aria-pressed="false"><span>Тёмная</span></button>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <h3 id="languageLabel">Язык</h3>
+                <div class="option-list" id="languageList" role="group" aria-labelledby="languageLabel">
+                    <button type="button" class="option" data-lang-value="system" aria-pressed="false">
+                        <span class="option-label">Системный</span>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <button type="button" class="danger-btn" id="clearCacheButton">
+                    <span aria-hidden="true">🗑</span>
+                    <span>Очистить кэш приложений</span>
+                </button>
+            </div>
+        </div>
+    </section>
 
     <script>
         window.toggleSubmenu = function (submenuId, cardElement) {
@@ -431,6 +771,193 @@
                 window.location.href = 'app://clear_cache';
             }
         };
+
+        (function () {
+            var root = document.documentElement;
+            var container = document.querySelector('.container');
+            var settingsButton = document.getElementById('settingsButton');
+            var panel = document.getElementById('settingsPanel');
+            var backdrop = document.getElementById('settingsBackdrop');
+            var closeButton = document.getElementById('settingsClose');
+            var themeOptions = document.getElementById('themeOptions');
+            var languageList = document.getElementById('languageList');
+            var clearCacheButton = document.getElementById('clearCacheButton');
+            var state = { themePref: 'system', langPref: 'system' };
+            var settingsOpen = false;
+            var lastFocus = null;
+            var revealTimer = null;
+
+            function sendToNative(url) {
+                try {
+                    window.location.href = url;
+                } catch (e) { }
+            }
+
+            function systemTheme() {
+                try {
+                    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+                } catch (e) {
+                    return 'dark';
+                }
+            }
+
+            function setTheme(theme) {
+                var value = theme === 'light' ? 'light' : 'dark';
+                if (root.dataset.theme !== value) {
+                    root.classList.add('theme-switching');
+                    root.dataset.theme = value;
+                    void root.offsetWidth;
+                    window.requestAnimationFrame(function () {
+                        window.requestAnimationFrame(function () {
+                            root.classList.remove('theme-switching');
+                        });
+                    });
+                }
+                var meta = document.querySelector('meta[name="color-scheme"]');
+                if (meta) meta.setAttribute('content', value);
+            }
+
+            function reveal() {
+                if (revealTimer !== null) {
+                    clearTimeout(revealTimer);
+                    revealTimer = null;
+                }
+                root.classList.add('ucnl-ready');
+            }
+
+            function markPressed(group, attribute, value) {
+                var items = group.querySelectorAll('[' + attribute + ']');
+                for (var i = 0; i < items.length; i++) {
+                    items[i].setAttribute('aria-pressed', items[i].getAttribute(attribute) === value ? 'true' : 'false');
+                }
+            }
+
+            function renderSettings() {
+                markPressed(themeOptions, 'data-theme-value', state.themePref);
+                markPressed(languageList, 'data-lang-value', state.langPref);
+            }
+
+            function focusableInPanel() {
+                return Array.prototype.filter.call(
+                    panel.querySelectorAll('button:not([disabled])'),
+                    function (el) { return el.offsetParent !== null; });
+            }
+
+            function openSettings() {
+                if (settingsOpen) return;
+                settingsOpen = true;
+                lastFocus = document.activeElement;
+                renderSettings();
+                document.body.classList.add('settings-open');
+                panel.setAttribute('aria-hidden', 'false');
+                settingsButton.setAttribute('aria-expanded', 'true');
+                container.setAttribute('aria-hidden', 'true');
+                container.inert = true;
+                try {
+                    closeButton.focus({ preventScroll: true });
+                } catch (e) {
+                    closeButton.focus();
+                }
+                sendToNative('app://settings_open');
+            }
+
+            function closeSettings(fromNative) {
+                if (!settingsOpen) return false;
+                settingsOpen = false;
+                document.body.classList.remove('settings-open');
+                panel.setAttribute('aria-hidden', 'true');
+                settingsButton.setAttribute('aria-expanded', 'false');
+                container.removeAttribute('aria-hidden');
+                container.inert = false;
+                var target = lastFocus && document.body.contains(lastFocus) ? lastFocus : settingsButton;
+                lastFocus = null;
+                try {
+                    target.focus({ preventScroll: true });
+                } catch (e) { }
+                if (!fromNative) sendToNative('app://settings_closed');
+                return true;
+            }
+
+            function chooseTheme(value) {
+                if (value !== 'system' && value !== 'light' && value !== 'dark') return;
+                if (value === state.themePref) return;
+                state.themePref = value;
+                renderSettings();
+                sendToNative('app://set_theme?' + encodeURIComponent(value));
+            }
+
+            function chooseLanguage(value) {
+                if (!value || value === state.langPref) return;
+                state.langPref = value;
+                renderSettings();
+                sendToNative('app://set_lang?' + encodeURIComponent(value));
+            }
+
+            settingsButton.addEventListener('click', openSettings);
+            closeButton.addEventListener('click', function () { closeSettings(false); });
+            backdrop.addEventListener('click', function () { closeSettings(false); });
+
+            themeOptions.addEventListener('click', function (e) {
+                var target = e.target.closest('[data-theme-value]');
+                if (target) chooseTheme(target.getAttribute('data-theme-value'));
+            });
+
+            languageList.addEventListener('click', function (e) {
+                var target = e.target.closest('[data-lang-value]');
+                if (target) chooseLanguage(target.getAttribute('data-lang-value'));
+            });
+
+            clearCacheButton.addEventListener('click', function () {
+                window.confirmClearCache();
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (!settingsOpen) return;
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeSettings(false);
+                    return;
+                }
+                if (e.key !== 'Tab') return;
+                var items = focusableInPanel();
+                if (items.length === 0) return;
+                var first = items[0];
+                var last = items[items.length - 1];
+                if (e.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            });
+
+            window.ucnlApplyConfig = function (cfg) {
+                if (!cfg || typeof cfg !== 'object') return;
+                setTheme(cfg.theme === 'light' || cfg.theme === 'dark' ? cfg.theme : systemTheme());
+                if (typeof cfg.themePref === 'string') state.themePref = cfg.themePref;
+                if (typeof cfg.langPref === 'string') state.langPref = cfg.langPref;
+                renderSettings();
+                reveal();
+            };
+
+            window.ucnlCloseSettings = function (fromNative) {
+                return closeSettings(fromNative === true);
+            };
+
+            renderSettings();
+
+            revealTimer = setTimeout(function () {
+                revealTimer = null;
+                if (root.classList.contains('ucnl-ready')) return;
+                setTheme(systemTheme());
+                reveal();
+            }, 3000);
+
+            window.addEventListener('load', function () {
+                setTimeout(function () { sendToNative('app://ready'); }, 0);
+            });
+        })();
     </script>
 </body>
 </html>
