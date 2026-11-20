@@ -46,9 +46,40 @@ public partial class MainPage : ContentPage
 
         MainWebView.Navigating += OnNavigating;
         MainWebView.Navigated += OnNavigated;
+        Loaded += OnPageLoaded;
+        Unloaded += OnPageUnloaded;
 
         ConfigureWebView();
         LoadLauncher();
+    }
+
+    private void OnPageLoaded(object? sender, EventArgs e)
+    {
+        ThemeService.Current.EffectiveThemeChanged -= OnEffectiveThemeChanged;
+        ThemeService.Current.EffectiveThemeChanged += OnEffectiveThemeChanged;
+        ThemeService.Current.Refresh();
+        UpdateWebViewBaseColor();
+    }
+
+    private void OnPageUnloaded(object? sender, EventArgs e)
+    {
+        ThemeService.Current.EffectiveThemeChanged -= OnEffectiveThemeChanged;
+    }
+
+    private void OnEffectiveThemeChanged(object? sender, string theme)
+    {
+        UpdateWebViewBaseColor();
+    }
+
+    private void UpdateWebViewBaseColor()
+    {
+#if ANDROID
+        if (MainWebView.Handler?.PlatformView is not Android.Webkit.WebView androidWebView) return;
+        var color = string.IsNullOrEmpty(_currentAppName)
+            ? ThemeService.Current.GetColor("UcnlBackgroundLight", "UcnlBackgroundDark")
+            : ThemeService.Current.GetColor("UcnlPwaBackground", "UcnlPwaBackground");
+        androidWebView.SetBackgroundColor(Microsoft.Maui.Platform.ColorExtensions.ToPlatform(color));
+#endif
     }
 
     private async Task RequestLocationPermissionsAsync()
@@ -114,6 +145,7 @@ public partial class MainPage : ContentPage
         androidWebView.SetWebChromeClient(_webChromeClient);
         androidWebView.SetWebViewClient(new LauncherWebViewClient(handler));
         androidWebView.AddJavascriptInterface(new NativeBridge(this), "NativeBridge");
+        UpdateWebViewBaseColor();
     }
 #endif
 
@@ -475,6 +507,7 @@ public partial class MainPage : ContentPage
         _isAppLoaded = false;
         _currentAppName = "";
         Toolbar.IsVisible = false;
+        UpdateWebViewBaseColor();
         MainWebView.Source = "launcher.html";
     }
 
@@ -1149,6 +1182,7 @@ public partial class MainPage : ContentPage
 
         StopUsbWatcher();
         _currentAppName = appName;
+        UpdateWebViewBaseColor();
         MainWebView.Source = fileUrl;
         return true;
     }

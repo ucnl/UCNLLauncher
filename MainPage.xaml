@@ -3,48 +3,46 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="UCNLLauncher.MainPage"
              NavigationPage.HasNavigationBar="False"
-             Shell.NavBarIsVisible="False">
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource UcnlBackgroundLight}, Dark={StaticResource UcnlBackgroundDark}}">
 
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*">
 
-        <!-- Панель с кнопкой Назад -->
-        <Grid x:Name="Toolbar" 
-              Grid.Row="0" 
-              BackgroundColor="#1a1a2e" 
-              Padding="8" 
+        <Grid x:Name="Toolbar"
+              Grid.Row="0"
+              BackgroundColor="{AppThemeBinding Light={StaticResource UcnlToolbarLight}, Dark={StaticResource UcnlToolbarDark}}"
+              Padding="8"
               IsVisible="False"
               ColumnDefinitions="Auto,*">
 
             <Button x:Name="BtnBack"
                     Grid.Column="0"
                     Text="← Назад"
-                    TextColor="White"
-                    BackgroundColor="#667eea"
+                    TextColor="{AppThemeBinding Light={StaticResource UcnlOnAccentLight}, Dark={StaticResource UcnlOnAccentDark}}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource UcnlAccentLight}, Dark={StaticResource UcnlAccentDark}}"
                     CornerRadius="8"
                     FontSize="14"
                     Padding="12,6"
                     Clicked="OnBackClicked" />
 
-            <Label Grid.Column="1" 
-                   Text="UCNL Tools" 
-                   TextColor="White" 
-                   FontSize="16" 
-                   VerticalOptions="Center" 
+            <Label Grid.Column="1"
+                   Text="UCNL Tools"
+                   TextColor="{AppThemeBinding Light={StaticResource UcnlOnToolbarLight}, Dark={StaticResource UcnlOnToolbarDark}}"
+                   FontSize="16"
+                   VerticalOptions="Center"
                    HorizontalOptions="Center" />
         </Grid>
 
-        <!-- WebView на весь экран -->
         <WebView x:Name="MainWebView"
                  Grid.Row="1"
                  HorizontalOptions="Fill"
                  VerticalOptions="Fill" />
 
-        <!-- Индикатор загрузки -->
         <ActivityIndicator x:Name="LoadingIndicator"
                            Grid.Row="1"
                            IsRunning="True"
                            IsVisible="True"
-                           Color="#667eea"
+                           Color="{AppThemeBinding Light={StaticResource UcnlAccentLight}, Dark={StaticResource UcnlAccentDark}}"
                            VerticalOptions="Center"
                            HorizontalOptions="Center" />
 
