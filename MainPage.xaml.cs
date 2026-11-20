@@ -10,6 +10,7 @@ public partial class MainPage : ContentPage
     private bool _isAppLoaded;
     private bool _usbPollingStarted;
     private bool _isLaunching;
+    private CancellationTokenSource? _launchCts;
     private bool _launcherSettingsOpen;
     private CancellationTokenSource? _readLoopCts;
     private CancellationTokenSource? _usbWatcherCts;
@@ -393,6 +394,13 @@ public partial class MainPage : ContentPage
 
     protected override bool OnBackButtonPressed()
     {
+        if (_isLaunching && _launchCts is { IsCancellationRequested: false } launchCts)
+        {
+            launchCts.Cancel();
+            LoadingIndicator.IsVisible = false;
+            return true;
+        }
+
 
         if (string.IsNullOrEmpty(_currentAppName) && _launcherSettingsOpen)
         {
@@ -1183,10 +1191,12 @@ public partial class MainPage : ContentPage
     {
         if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) return;
         _isLaunching = true;
+        var cts = new CancellationTokenSource();
+        _launchCts = cts;
         bool navigated = false;
         try
         {
-            navigated = await LaunchAppCoreAsync(appName);
+            navigated = await LaunchAppCoreAsync(appName, cts.Token);
         }
         catch (Exception ex)
         {
@@ -1194,26 +1204,30 @@ public partial class MainPage : ContentPage
         }
         finally
         {
+            _launchCts = null;
+            cts.Dispose();
             _isLaunching = false;
             if (!navigated)
                 LoadingIndicator.IsVisible = false;
         }
     }
 
-    private async Task<bool> LaunchAppCoreAsync(string appName)
+    private async Task<bool> FailLaunchAsync(CancellationToken token, string title, string message)
+    {
+        LoadingIndicator.IsVisible = false;
+        if (!token.IsCancellationRequested)
+            await DisplayAlert(title, message, T("dialog.ok"));
+        return false;
+    }
+
+    private async Task<bool> LaunchAppCoreAsync(string appName, CancellationToken token)
     {
         if (!_appUrls.ContainsKey(appName))
-        {
-            await DisplayAlert(T("dialog.error.title"), T("dialog.app.notfound"), T("dialog.ok"));
-            return false;
-        }
+            return await FailLaunchAsync(token, T("dialog.error.title"), T("dialog.app.notfound"));
 
         // Не открываем приложение, если его сейчас синхронизируем
         if (_syncingApps.Contains(appName))
-        {
-            await DisplayAlert("Подождите", "Приложение ещё загружается, подождите окончания загрузки.", "OK");
-            return false;
-        }
+            return await FailLaunchAsync(token, "Подождите", "Приложение ещё загружается, подождите окончания загрузки.");
 
         _isAppLoaded = false;
         LoadingIndicator.IsVisible = true;
@@ -1232,6 +1246,7 @@ public partial class MainPage : ContentPage
                 }
             }
             catch { }
+            if (token.IsCancellationRequested) return false;
 
             if (!_usbService.IsAnyPortOpen)
             {
@@ -1240,12 +1255,14 @@ public partial class MainPage : ContentPage
                     System.Diagnostics.Debug.WriteLine($"[LaunchApp] {appName}: AZM не найден, работаем без устройства");
                 }
             }
+            if (token.IsCancellationRequested) return false;
             _ = _usbService.TryConnectAsync(1, 9600, userInitiated: true);
         }
         else if (appName == "uGNSSMonitor")
         {
             _usbService.CloseAll();
             await Task.Delay(300);
+            if (token.IsCancellationRequested) return false;
 
             if (!await _usbService.TryConnectAsync(0, userInitiated: true))
             {
@@ -1261,6 +1278,7 @@ public partial class MainPage : ContentPage
                     System.Diagnostics.Debug.WriteLine("[LaunchApp] uWaveSuite: uWave не найден, работаем без устройства");
                 }
             }
+            if (token.IsCancellationRequested) return false;
             _ = _usbService.TryConnectAsync(1, 9600, userInitiated: true);
         }
         else
@@ -1269,13 +1287,10 @@ public partial class MainPage : ContentPage
             if (!_usbService.IsAnyPortOpen)
             {
                 if (!await _usbService.TryConnectAsync(0, 9600, userInitiated: true))
-                {
-                    LoadingIndicator.IsVisible = false;
-                    await DisplayAlert(T("dialog.usb.title"), T("dialog.usb.generic"), T("dialog.ok"));
-                    return false;
-                }
+                    return await FailLaunchAsync(token, T("dialog.usb.title"), T("dialog.usb.generic"));
             }
         }
+        if (token.IsCancellationRequested) return false;
 
         // --- Синхронизация с сетью (если есть) ---
         string remoteUrl = _appUrls[appName];
@@ -1303,26 +1318,20 @@ public partial class MainPage : ContentPage
                     msg => System.Diagnostics.Debug.WriteLine(msg));
 
                 if (synced)
-                {
                     Preferences.Set($"{appName}_lastSync", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-                }
-                else if (!_cacheService.HasLocalCopy(appName))
-                {
-                    LoadingIndicator.IsVisible = false;
-                    await DisplayAlert(T("dialog.error.title"), T("dialog.app.loadfailed"), T("dialog.ok"));
-                    return false;
-                }
+
+                if (token.IsCancellationRequested) return false;
+
+                if (!synced && !_cacheService.HasLocalCopy(appName))
+                    return await FailLaunchAsync(token, T("dialog.error.title"), T("dialog.app.loadfailed"));
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[LaunchApp] Sync failed: {ex.Message}");
+                if (token.IsCancellationRequested) return false;
 
                 if (!_cacheService.HasLocalCopy(appName))
-                {
-                    LoadingIndicator.IsVisible = false;
-                    await DisplayAlert(T("dialog.error.title"), T("dialog.app.loadfailed"), T("dialog.ok"));
-                    return false;
-                }
+                    return await FailLaunchAsync(token, T("dialog.error.title"), T("dialog.app.loadfailed"));
             }
             finally
             {
@@ -1333,13 +1342,10 @@ public partial class MainPage : ContentPage
         }
         else if (!hasNetwork && !_cacheService.HasLocalCopy(appName))
         {
-            LoadingIndicator.IsVisible = false;
-            await DisplayAlert(
-                T("dialog.network.title"),
-                T("dialog.network.message"),
-                T("dialog.ok"));
-            return false;
+            return await FailLaunchAsync(token, T("dialog.network.title"), T("dialog.network.message"));
         }
+
+        if (token.IsCancellationRequested) return false;
 
         // --- Открываем локальный index.html ---
         var localPath = Path.Combine(_cacheService.GetAppCachePath(appName), "index.html");
