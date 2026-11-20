@@ -675,6 +675,7 @@ public partial class MainPage : ContentPage
     private void OnBackClicked(object? sender, EventArgs e)
     {
         _readLoopCts?.Cancel();
+        _usbService.DiscardPendingWrites();
         StopNativeGPS();
         StopCompass();
         LoadLauncher();

@@ -20,6 +20,17 @@ public class UsbService
     private const string PermissionAction = "com.unavlab.ucnllauncher.USB_PERMISSION";
     private const int DefaultBaudRate = 9600;
     private static readonly TimeSpan PermissionTimeout = TimeSpan.FromSeconds(60);
+    private const int WriteWaitMs = 3000;
+    private const int WriteWaitPollMs = 50;
+    private const int MaxPendingBytesWhileClosed = 64 * 1024;
+
+    private sealed class PortWriter
+    {
+        public readonly Channel<byte[]> Channel = System.Threading.Channels.Channel.CreateUnbounded<byte[]>(
+            new UnboundedChannelOptions { SingleReader = true });
+        public int PendingBytes;
+        public volatile bool Closed;
+    }
 
     private readonly Context _context;
     private readonly UsbManager _usbManager;
@@ -28,7 +39,8 @@ public class UsbService
     private readonly Dictionary<int, UsbPortInfo> _ports = new();
     private readonly Dictionary<int, int> _desiredBaud = new();
     private readonly Dictionary<int, string> _lastDevice = new();
-    private readonly Dictionary<int, Channel<byte[]>> _writeQueues = new();
+    private readonly Dictionary<int, PortWriter> _writers = new();
+    private readonly HashSet<int> _openRequests = new();
     private readonly HashSet<string> _deniedDevices = new();
     private readonly UsbPermissionReceiver _permissionReceiver;
     private TaskCompletionSource<bool>? _permissionTcs;
@@ -105,6 +117,7 @@ public class UsbService
     {
         lock (_sync)
             _desiredBaud[portId] = DefaultBaudRate;
+        DiscardWriter(portId);
 
         await _gate.WaitAsync().ConfigureAwait(false);
         try
@@ -366,34 +379,126 @@ public class UsbService
 
     public bool Write(int portId, string data)
     {
-        Channel<byte[]> queue;
+        var bytes = System.Text.Encoding.ASCII.GetBytes(data);
+        bool open;
         lock (_sync)
         {
-            if (!_ports.ContainsKey(portId)) return false;
+            open = _ports.ContainsKey(portId);
+            if (!open && !_desiredBaud.ContainsKey(portId)) return false;
 
-            if (!_writeQueues.TryGetValue(portId, out var existing))
+            if (!_writers.TryGetValue(portId, out var writer) || writer.Closed)
             {
-                existing = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
-                _writeQueues[portId] = existing;
-                var reader = existing.Reader;
-                _ = Task.Run(() => WriteLoopAsync(portId, reader));
+                writer = new PortWriter();
+                _writers[portId] = writer;
+                _ = Task.Run(() => WriteLoopAsync(portId, writer));
             }
-            queue = existing;
+
+            if (!open && Volatile.Read(ref writer.PendingBytes) + bytes.Length > MaxPendingBytesWhileClosed)
+                return false;
+
+            Interlocked.Add(ref writer.PendingBytes, bytes.Length);
+            if (!writer.Channel.Writer.TryWrite(bytes))
+            {
+                Interlocked.Add(ref writer.PendingBytes, -bytes.Length);
+                return false;
+            }
         }
 
-        return queue.Writer.TryWrite(System.Text.Encoding.ASCII.GetBytes(data));
+        if (!open)
+            RequestOpen(portId);
+        return true;
     }
 
-    private async Task WriteLoopAsync(int portId, ChannelReader<byte[]> reader)
+    private void RequestOpen(int portId)
     {
+        lock (_sync)
+        {
+            if (!_openRequests.Add(portId)) return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await EnsureOpenAsync(portId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Open request error (port {portId}): {ex.Message}");
+            }
+            finally
+            {
+                lock (_sync)
+                    _openRequests.Remove(portId);
+            }
+        });
+    }
+
+    private async Task<UsbPortInfo?> WaitForPortAsync(int portId, PortWriter writer)
+    {
+        var deadline = Environment.TickCount64 + WriteWaitMs;
+        bool requested = false;
+        while (true)
+        {
+            lock (_sync)
+            {
+                if (writer.Closed) return null;
+                if (_ports.TryGetValue(portId, out var p)) return p;
+                if (!_desiredBaud.ContainsKey(portId)) return null;
+            }
+
+            if (!requested)
+            {
+                requested = true;
+                RequestOpen(portId);
+            }
+
+            if (Environment.TickCount64 >= deadline) return null;
+            await Task.Delay(WriteWaitPollMs).ConfigureAwait(false);
+        }
+    }
+
+    private static void DiscardPending(PortWriter writer)
+    {
+        while (writer.Channel.Reader.TryRead(out var dropped))
+            Interlocked.Add(ref writer.PendingBytes, -dropped.Length);
+    }
+
+    private List<PortWriter> DetachWritersLocked()
+    {
+        var writers = _writers.Values.ToList();
+        foreach (var writer in writers)
+            writer.Closed = true;
+        _writers.Clear();
+        return writers;
+    }
+
+    public void DiscardPendingWrites()
+    {
+        List<PortWriter> writers;
+        lock (_sync)
+            writers = DetachWritersLocked();
+
+        foreach (var writer in writers)
+            writer.Channel.Writer.TryComplete();
+    }
+
+    private async Task WriteLoopAsync(int portId, PortWriter writer)
+    {
+        var reader = writer.Channel.Reader;
         while (await reader.WaitToReadAsync().ConfigureAwait(false))
         {
             while (reader.TryRead(out var bytes))
             {
-                UsbPortInfo? p;
-                lock (_sync)
-                    _ports.TryGetValue(portId, out p);
-                if (p == null) continue;
+                Interlocked.Add(ref writer.PendingBytes, -bytes.Length);
+                if (writer.Closed) continue;
+
+                var p = await WaitForPortAsync(portId, writer).ConfigureAwait(false);
+                if (p == null)
+                {
+                    DiscardPending(writer);
+                    continue;
+                }
 
                 try
                 {
@@ -411,16 +516,32 @@ public class UsbService
         }
     }
 
+    private void DiscardWriter(int portId)
+    {
+        PortWriter? writer;
+        lock (_sync)
+        {
+            if (!_writers.Remove(portId, out writer)) return;
+            writer.Closed = true;
+        }
+        writer.Channel.Writer.TryComplete();
+    }
+
     public void CloseAll()
     {
         List<UsbPortInfo> all;
+        List<PortWriter> writers;
         lock (_sync)
         {
             all = _ports.Values.ToList();
+            writers = DetachWritersLocked();
             _ports.Clear();
             _desiredBaud.Clear();
             _lastDevice.Clear();
         }
+
+        foreach (var writer in writers)
+            writer.Channel.Writer.TryComplete();
 
         foreach (var p in all)
             ReleasePort(p.Port, p.Connection);
