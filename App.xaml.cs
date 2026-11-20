@@ -9,6 +9,7 @@ namespace UCNLLauncher
             InitializeComponent();
 
             ThemeService.Current.Initialize(this);
+            LocalizationService.Current.Initialize();
 
             MainPage = new AppShell();
         }
@@ -20,6 +21,10 @@ namespace UCNLLauncher
             return window;
         }
 
-        private static void OnWindowActivated(object? sender, EventArgs e) => ThemeService.Current.Refresh();
+        private static void OnWindowActivated(object? sender, EventArgs e)
+        {
+            ThemeService.Current.Refresh();
+            LocalizationService.Current.Refresh();
+        }
     }
 }
