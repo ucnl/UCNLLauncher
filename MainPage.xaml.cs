@@ -23,7 +23,6 @@ public partial class MainPage : ContentPage
     private readonly PwaCacheService _cacheService;
     private GeolocationWebChromeClient? _webChromeClient;
 
-    // Фоновая синхронизация
     private bool _isSyncingAll = false;
     private readonly HashSet<string> _syncingApps = new(StringComparer.Ordinal);
     private readonly HashSet<string> _disabledApps = new(StringComparer.Ordinal);
@@ -400,7 +399,6 @@ public partial class MainPage : ContentPage
             LoadingIndicator.IsVisible = false;
             return true;
         }
-
 
         if (string.IsNullOrEmpty(_currentAppName) && _launcherSettingsOpen)
         {
@@ -784,13 +782,11 @@ public partial class MainPage : ContentPage
             await Task.Delay(500);
             await InjectLauncherScript();
 
-            // Фоновая синхронизация всех отсутствующих приложений
             _ = SyncAllMissingAppsAsync();
 
             return;
         }
 
-        // PWA загрузилось (а не launcher.html) — инициализируем адаптер
         if (!_isAppLoaded && !string.IsNullOrEmpty(_currentAppName))
         {
             _isAppLoaded = true;
@@ -798,8 +794,6 @@ public partial class MainPage : ContentPage
             await InjectDeviceAdapter();
             StartCompass();
 
-            // uGNSSMonitor умеет работать без USB — сразу поднимаем GPS,
-            // чтобы встроенный источник был доступен по кнопке.
             if (_currentAppName == "uGNSSMonitor")
             {
                 StartNativeGPS();
@@ -812,7 +806,6 @@ public partial class MainPage : ContentPage
 #if ANDROID
         if (_compassService != null)
         {
-            // Уже запущен — повторно не создаём (идемпотентность)
             return;
         }
         try
@@ -879,7 +872,6 @@ public partial class MainPage : ContentPage
         {
             string script = @"
         window.setAppDisabled = function(appName, disabled, hint) {
-            // Находим все элементы с data-app-name или onclick launchApp(appName)
             var els = document.querySelectorAll('[data-app-name=""' + appName + '""]');
             els.forEach(function(el) {
                 el.style.pointerEvents = disabled ? 'none' : '';
@@ -1058,8 +1050,6 @@ public partial class MainPage : ContentPage
         }
     }
 
-    // ========== ФОНОВАЯ СИНХРОНИЗАЦИЯ ВСЕХ ОТСУТСТВУЮЩИХ PWA ==========
-
     private async Task SyncAllMissingAppsAsync()
     {
         if (_isSyncingAll) return;
@@ -1080,7 +1070,6 @@ public partial class MainPage : ContentPage
                 return;
             }
 
-            // Список приложений, которых нет локально
             var missingApps = new List<string>();
             foreach (var kvp in _appUrls)
             {
@@ -1101,7 +1090,6 @@ public partial class MainPage : ContentPage
             int done = 0;
             foreach (var appName in missingApps)
             {
-                // Блокируем кнопку этого приложения
                 await SetAppDisabledAsync(appName, true, "Загрузка...");
                 _disabledApps.Add(appName);
                 _syncingApps.Add(appName);
@@ -1134,7 +1122,6 @@ public partial class MainPage : ContentPage
                     _syncingApps.Remove(appName);
                     _disabledApps.Remove(appName);
 
-                    // Разблокируем кнопку
                     await SetAppDisabledAsync(appName, false, "");
                 }
 
@@ -1154,9 +1141,6 @@ public partial class MainPage : ContentPage
         }
     }
 
-    /// <summary>
-    /// Показать/скрыть статус-строку на launcher.html.
-    /// </summary>
     private async Task UpdateSyncStatus(string text, bool visible)
     {
         try
@@ -1174,9 +1158,6 @@ public partial class MainPage : ContentPage
         catch { }
     }
 
-    /// <summary>
-    /// Заблокировать/разблокировать кнопку приложения на launcher.html.
-    /// </summary>
     private async Task SetAppDisabledAsync(string appName, bool disabled, string hint)
     {
         try
@@ -1236,16 +1217,12 @@ public partial class MainPage : ContentPage
         if (!_appUrls.ContainsKey(appName))
             return await FailLaunchAsync(token, T("dialog.error.title"), T("dialog.app.notfound"));
 
-        // Не открываем приложение, если его сейчас синхронизируем
         if (_syncingApps.Contains(appName))
             return await FailLaunchAsync(token, "Подождите", "Приложение ещё загружается, подождите окончания загрузки.");
 
         _isAppLoaded = false;
         LoadingIndicator.IsVisible = true;
 
-        // USB-логика. Для приложений, умеющих работать без устройства
-        // (просмотр логов, встроенный GPS/компас), подключение — best effort:
-        // не удалось — всё равно запускаем PWA, пользователь сам решит.
         if (appName == "AzimuthWebSuite" || appName == "AzimuthLBLX")
         {
             try
@@ -1294,7 +1271,6 @@ public partial class MainPage : ContentPage
         }
         else
         {
-            // uWaver, RedPhoneDXConfig, uConsole — без устройства работать не могут
             if (!_usbService.IsAnyPortOpen)
             {
                 if (!await _usbService.TryConnectAsync(0, 9600, userInitiated: true))
@@ -1303,7 +1279,6 @@ public partial class MainPage : ContentPage
         }
         if (token.IsCancellationRequested) return false;
 
-        // --- Синхронизация с сетью (если есть) ---
         string remoteUrl = _appUrls[appName];
 
         bool hasNetwork = false;
@@ -1358,7 +1333,6 @@ public partial class MainPage : ContentPage
 
         if (token.IsCancellationRequested) return false;
 
-        // --- Открываем локальный index.html ---
         var localPath = Path.Combine(_cacheService.GetAppCachePath(appName), "index.html");
         var fileUrl = $"file://{localPath}";
 
@@ -1438,7 +1412,6 @@ public partial class MainPage : ContentPage
         StopCompass();
         _usbService.CloseAll();
     }
-
 
 #if ANDROID
 
@@ -1538,7 +1511,6 @@ public partial class MainPage : ContentPage
         });
     }
 #endif
-
 
 }
 
