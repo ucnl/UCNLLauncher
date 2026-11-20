@@ -1,11 +1,7 @@
-﻿using Android;
-using Android.App;
-using Android.Content;
+﻿using Android.App;
 using Android.Content.PM;
 using Android.Hardware.Usb;
 using Android.OS;
-using AndroidX.Core.App;
-using AndroidX.Core.Content;
 
 namespace UCNLLauncher
 {
@@ -20,34 +16,6 @@ namespace UCNLLauncher
         {
             base.OnCreate(savedInstanceState);
             Instance = this;
-
-            var permissions = new[]
-            {
-                Manifest.Permission.AccessFineLocation,
-                Manifest.Permission.AccessCoarseLocation,
-                Manifest.Permission.AccessBackgroundLocation
-            };
-
-            var missing = permissions.Where(p =>
-                ContextCompat.CheckSelfPermission(this, p) != Permission.Granted).ToArray();
-
-            if (missing.Length > 0)
-            {
-                ActivityCompat.RequestPermissions(this, missing, 1);
-            }
-        }
-
-        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
-        {
-            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-
-            if (requestCode == 1)
-            {
-                for (int i = 0; i < permissions.Length; i++)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[Permission] {permissions[i]}: {(grantResults[i] == Permission.Granted ? "Granted" : "Denied")}");
-                }
-            }
         }
 
         protected override void OnActivityResult(int requestCode, Result resultCode, Android.Content.Intent? data)
