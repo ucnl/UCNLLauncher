@@ -1,6 +1,4 @@
-﻿using Microsoft.Maui.Platform;
-using System.Net.Http;
-using UCNLLauncher.Services;
+﻿using UCNLLauncher.Services;
 
 namespace UCNLLauncher;
 
@@ -11,9 +9,9 @@ public partial class MainPage : ContentPage
     private bool _isLauncherLoaded;
     private bool _isAppLoaded;
     private bool _usbPollingStarted;
+    private bool _isLaunching;
     private CancellationTokenSource? _readLoopCts;
     private CancellationTokenSource? _usbWatcherCts;
-    private readonly HttpClient _httpClient;
     private string _currentAppName = "";
 
     private Android.Locations.LocationManager? _locationManager;
@@ -44,7 +42,6 @@ public partial class MainPage : ContentPage
         InitializeComponent();
         _ = RequestLocationPermissionsAsync();
         _usbService = new UsbService();
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
         _cacheService = new PwaCacheService();
 
         MainWebView.Navigating += OnNavigating;
@@ -64,6 +61,9 @@ public partial class MainPage : ContentPage
                 status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
             }
 
+            if (status != PermissionStatus.Granted)
+                return;
+
             try
             {
                 var bgStatus = await Permissions.CheckStatusAsync<Permissions.LocationAlways>();
@@ -80,22 +80,24 @@ public partial class MainPage : ContentPage
     private void ConfigureWebView()
     {
 #if ANDROID
-        if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView existingWv)
+        if (MainWebView.Handler is Microsoft.Maui.Handlers.WebViewHandler existingHandler
+            && existingHandler.PlatformView is Android.Webkit.WebView existingWv)
         {
-            SetupAndroidWebView(existingWv);
+            SetupAndroidWebView(existingHandler, existingWv);
         }
         MainWebView.HandlerChanged += (s, e) =>
         {
-            if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView androidWebView)
+            if (MainWebView.Handler is Microsoft.Maui.Handlers.WebViewHandler handler
+                && handler.PlatformView is Android.Webkit.WebView androidWebView)
             {
-                SetupAndroidWebView(androidWebView);
+                SetupAndroidWebView(handler, androidWebView);
             }
         };
 #endif
     }
 
 #if ANDROID
-    private void SetupAndroidWebView(Android.Webkit.WebView androidWebView)
+    private void SetupAndroidWebView(Microsoft.Maui.Handlers.WebViewHandler handler, Android.Webkit.WebView androidWebView)
     {
         androidWebView.Settings.CacheMode = Android.Webkit.CacheModes.CacheElseNetwork;
         androidWebView.Settings.JavaScriptEnabled = true;
@@ -105,10 +107,12 @@ public partial class MainPage : ContentPage
         androidWebView.Settings.AllowFileAccessFromFileURLs = true;
         androidWebView.Settings.AllowUniversalAccessFromFileURLs = true;
         androidWebView.Settings.SetGeolocationEnabled(true);
-        androidWebView.Settings.SetGeolocationDatabasePath(
-            Android.App.Application.Context.FilesDir?.Path ?? "/data/data/com.unavlab.ucnllauncher/files");
-        _webChromeClient = new GeolocationWebChromeClient();
+        if (!OperatingSystem.IsAndroidVersionAtLeast(24))
+            androidWebView.Settings.SetGeolocationDatabasePath(
+                Android.App.Application.Context.FilesDir?.Path ?? "/data/data/com.unavlab.ucnllauncher/files");
+        _webChromeClient = new GeolocationWebChromeClient(handler);
         androidWebView.SetWebChromeClient(_webChromeClient);
+        androidWebView.SetWebViewClient(new LauncherWebViewClient(handler));
         androidWebView.AddJavascriptInterface(new NativeBridge(this), "NativeBridge");
     }
 #endif
@@ -125,10 +129,12 @@ public partial class MainPage : ContentPage
         _webChromeClient?.HandleActivityResult(requestCode, resultCode, data);
     }
 
-    public class GeolocationWebChromeClient : Android.Webkit.WebChromeClient
+    public class GeolocationWebChromeClient : Microsoft.Maui.Platform.MauiWebChromeClient
     {
         private Android.Webkit.IValueCallback? _filePathCallback;
         internal const int FileChooserRequestCode = 4321;
+
+        public GeolocationWebChromeClient(Microsoft.Maui.Handlers.IWebViewHandler handler) : base(handler) { }
 
         public override void OnGeolocationPermissionsShowPrompt(string? origin, Android.Webkit.GeolocationPermissions.ICallback? callback)
         {
@@ -200,6 +206,70 @@ public partial class MainPage : ContentPage
         }
     }
 
+    public class LauncherWebViewClient : Microsoft.Maui.Platform.MauiWebViewClient
+    {
+        public LauncherWebViewClient(Microsoft.Maui.Handlers.WebViewHandler handler) : base(handler) { }
+
+        public override bool ShouldOverrideUrlLoading(Android.Webkit.WebView? view, Android.Webkit.IWebResourceRequest? request)
+        {
+            var scheme = request?.Url?.Scheme;
+            if (request != null && !request.IsForMainFrame
+                && (string.Equals(scheme, "http", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(scheme, "https", StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            return base.ShouldOverrideUrlLoading(view, request);
+        }
+    }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (!string.IsNullOrEmpty(_currentAppName))
+        {
+            OnBackClicked(null, EventArgs.Empty);
+            return true;
+        }
+        return base.OnBackButtonPressed();
+    }
+
+    private bool IsLocalPageActive()
+    {
+        try
+        {
+            var url = (MainWebView.Handler?.PlatformView as Android.Webkit.WebView)?.Url;
+            if (string.IsNullOrEmpty(url)) return false;
+            if (url.StartsWith("file:///android_asset/", StringComparison.Ordinal)) return true;
+            if (!url.StartsWith("file://", StringComparison.Ordinal)) return false;
+
+            var localPath = System.IO.Path.GetFullPath(new Uri(url).LocalPath);
+            var cacheRoot = System.IO.Path.GetFullPath(_cacheService.CacheRoot).TrimEnd('/') + "/";
+            return localPath.StartsWith(cacheRoot, StringComparison.Ordinal);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsWebUrl(string url) =>
+        url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+        || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+
+    private static void OpenInBrowser(string url)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                await Launcher.Default.OpenAsync(new Uri(url));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[OpenInBrowser] {ex.Message}");
+            }
+        });
+    }
+
     private async void StartNativeGPS()
     {
         var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
@@ -211,6 +281,8 @@ public partial class MainPage : ContentPage
                 return;
             }
         }
+
+        StopNativeGPS();
 
         try
         {
@@ -313,11 +385,13 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            _mauiGpsCts = new CancellationTokenSource();
+            var cts = new CancellationTokenSource();
+            _mauiGpsCts = cts;
+            var token = cts.Token;
 
             Task.Run(async () =>
             {
-                while (!_mauiGpsCts.Token.IsCancellationRequested)
+                while (!token.IsCancellationRequested)
                 {
                     try
                     {
@@ -325,7 +399,7 @@ public partial class MainPage : ContentPage
                             GeolocationAccuracy.Medium,
                             TimeSpan.FromSeconds(10));
 
-                        var location = await Geolocation.Default.GetLocationAsync(request, _mauiGpsCts.Token);
+                        var location = await Geolocation.Default.GetLocationAsync(request, token);
 
                         if (location != null && (location.Latitude != 0 || location.Longitude != 0))
                         {
@@ -339,9 +413,16 @@ public partial class MainPage : ContentPage
                     }
                     catch { }
 
-                    await Task.Delay(3000, _mauiGpsCts.Token);
+                    try
+                    {
+                        await Task.Delay(3000, token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
                 }
-            }, _mauiGpsCts.Token);
+            }, token);
         }
         catch { }
     }
@@ -407,6 +488,23 @@ public partial class MainPage : ContentPage
 
     private void OnNavigating(object? sender, WebNavigatingEventArgs e)
     {
+        if (string.IsNullOrEmpty(e.Url)) return;
+
+        if (IsWebUrl(e.Url))
+        {
+            e.Cancel = true;
+            OpenInBrowser(e.Url);
+            return;
+        }
+
+        bool isBridgeCommand = e.Url.StartsWith("app://") || e.Url.StartsWith("uart://") || e.Url.StartsWith("file://save?");
+        if (isBridgeCommand && !IsLocalPageActive())
+        {
+            e.Cancel = true;
+            System.Diagnostics.Debug.WriteLine("[OnNavigating] Bridge command from non-local page rejected");
+            return;
+        }
+
         if (e.Url.StartsWith("app://savefile?"))
         {
             e.Cancel = true;
@@ -549,10 +647,7 @@ public partial class MainPage : ContentPage
     private async void ClearAllCache()
     {
         foreach (var key in _appUrls.Keys)
-        {
-            Preferences.Remove(key + "_cache");
             Preferences.Remove($"{key}_lastSync");
-        }
 
         try
         {
@@ -572,16 +667,7 @@ public partial class MainPage : ContentPage
 
     private async Task InjectLauncherScript()
     {
-        string script = @"        
-        window.launchApp = function(appName) { window.location.href = 'app://' + appName; };
-        window.updateUsbStatus = function(connected) {
-            var dot = document.getElementById('statusDot');
-            var text = document.getElementById('statusText');
-            if (dot && text) {
-                dot.className = connected ? 'status-dot connected' : 'status-dot';
-                text.textContent = connected ? 'USB подключено' : 'USB не найдено';
-            }
-        };
+        string script = @"
         window.setAppDisabled = function(appName, disabled, hint) {
             // Находим все элементы с data-app-name или onclick launchApp(appName)
             var els = document.querySelectorAll('[data-app-name=""' + appName + '""]');
@@ -606,7 +692,7 @@ public partial class MainPage : ContentPage
     ";
         await MainWebView.EvaluateJavaScriptAsync(script);
         bool hasDevice = await _usbService.TryConnectAsync(0, 9600);
-        if (!string.IsNullOrEmpty(_currentAppName)) return;
+        if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) return;
         await MainWebView.EvaluateJavaScriptAsync($"updateUsbStatus({hasDevice.ToString().ToLower()})");
         StartUsbWatcher(hasDevice);
     }
@@ -895,20 +981,40 @@ public partial class MainPage : ContentPage
 
     private async void LaunchApp(string appName)
     {
+        if (_isLaunching) return;
+        _isLaunching = true;
+        bool navigated = false;
+        try
+        {
+            navigated = await LaunchAppCoreAsync(appName);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LaunchApp] {ex.Message}");
+        }
+        finally
+        {
+            _isLaunching = false;
+            if (!navigated)
+                LoadingIndicator.IsVisible = false;
+        }
+    }
+
+    private async Task<bool> LaunchAppCoreAsync(string appName)
+    {
         if (!_appUrls.ContainsKey(appName))
         {
             await DisplayAlert("Ошибка", "Приложение не найдено", "OK");
-            return;
+            return false;
         }
 
         // Не открываем приложение, если его сейчас синхронизируем
         if (_syncingApps.Contains(appName))
         {
             await DisplayAlert("Подождите", "Приложение ещё загружается, подождите окончания загрузки.", "OK");
-            return;
+            return false;
         }
 
-        _currentAppName = appName;
         _isAppLoaded = false;
         LoadingIndicator.IsVisible = true;
 
@@ -966,7 +1072,7 @@ public partial class MainPage : ContentPage
                 {
                     LoadingIndicator.IsVisible = false;
                     await DisplayAlert("USB", "Устройство не найдено", "OK");
-                    return;
+                    return false;
                 }
             }
         }
@@ -1004,7 +1110,7 @@ public partial class MainPage : ContentPage
                 {
                     LoadingIndicator.IsVisible = false;
                     await DisplayAlert("Ошибка", "Не удалось загрузить приложение", "OK");
-                    return;
+                    return false;
                 }
             }
             catch (Exception ex)
@@ -1015,7 +1121,7 @@ public partial class MainPage : ContentPage
                 {
                     LoadingIndicator.IsVisible = false;
                     await DisplayAlert("Ошибка", "Не удалось загрузить приложение", "OK");
-                    return;
+                    return false;
                 }
             }
             finally
@@ -1032,7 +1138,7 @@ public partial class MainPage : ContentPage
                 "Нет сети",
                 "Приложение ещё не загружено. Подключите интернет для первой загрузки.",
                 "OK");
-            return;
+            return false;
         }
 
         // --- Открываем локальный index.html ---
@@ -1042,7 +1148,9 @@ public partial class MainPage : ContentPage
         System.Diagnostics.Debug.WriteLine($"[LaunchApp] Opening: {fileUrl}");
 
         StopUsbWatcher();
+        _currentAppName = appName;
         MainWebView.Source = fileUrl;
+        return true;
     }
 
     private async void HandleFileSave(string payload)
