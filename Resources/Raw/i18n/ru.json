@@ -11,7 +11,7 @@
   "launcher.app.redphone.desc": "Конфигуратор водолазных станций связи RedPhone-DX",
   "launcher.utils.name": "Утилиты",
   "launcher.utils.desc": "Вспомогательные инструменты",
-  "launcher.app.ugnss.desc": "Монитор GNSS-приемника",
+  "launcher.app.ugnss.desc": "Монитор GNSS-приёмника",
   "launcher.app.uconsole.desc": "Универсальная консоль",
   "launcher.usb.checking": "Проверка USB...",
   "launcher.usb.connected": "USB устройство подключено",

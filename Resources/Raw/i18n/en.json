@@ -1,9 +1,9 @@
 {
   "_name": "English",
 
-  "launcher.subtitle": "Hardware utilities",
+  "launcher.subtitle": "Utilities for equipment by",
   "launcher.app.zima2.desc": "Apps for the Zima2 system",
-  "launcher.app.azimuth.desc": "Zima2 USBL operation",
+  "launcher.app.azimuth.desc": "Operating the Zima2 USBL system",
   "launcher.app.lblx.desc": "Virtual Long Baseline (VLBL)",
   "launcher.app.uwave.desc": "Apps for uWave modems",
   "launcher.app.uwavesuite.desc": "Tracking, USBL and VLBL for uWave modems",
