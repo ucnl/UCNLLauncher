@@ -41,6 +41,7 @@ public partial class MainPage : ContentPage
     public MainPage()
     {
         InitializeComponent();
+        ApplyNativeTexts();
         _ = RequestLocationPermissionsAsync();
         _usbService = new UsbService();
         _cacheService = new PwaCacheService();
@@ -60,11 +61,33 @@ public partial class MainPage : ContentPage
         ThemeService.Current.EffectiveThemeChanged += OnEffectiveThemeChanged;
         ThemeService.Current.Refresh();
         UpdateWebViewBaseColor();
+
+        LocalizationService.Current.LanguageChanged -= OnLanguageChanged;
+        LocalizationService.Current.LanguageChanged += OnLanguageChanged;
+        LocalizationService.Current.Refresh();
+        ApplyNativeTexts();
     }
 
     private void OnPageUnloaded(object? sender, EventArgs e)
     {
         ThemeService.Current.EffectiveThemeChanged -= OnEffectiveThemeChanged;
+        LocalizationService.Current.LanguageChanged -= OnLanguageChanged;
+    }
+
+    private static string T(string key, params object[] args) => LocalizationService.Current.T(key, args);
+
+    private void ApplyNativeTexts()
+    {
+        BtnBack.Text = "← " + T("native.back");
+    }
+
+    private void OnLanguageChanged(object? sender, string language)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            ApplyNativeTexts();
+            PushLauncherConfig();
+        });
     }
 
     private void OnEffectiveThemeChanged(object? sender, string theme)
@@ -111,7 +134,24 @@ public partial class MainPage : ContentPage
     {
         writer.WriteString("theme", ThemeService.Current.EffectiveTheme);
         writer.WriteString("themePref", ThemeService.Current.Preference);
-        writer.WriteString("langPref", AppSettings.Language);
+        var localization = LocalizationService.Current;
+        writer.WriteString("lang", localization.CurrentLanguage);
+        writer.WriteString("langPref", localization.Preference);
+
+        writer.WriteStartArray("languages");
+        foreach (var language in localization.Languages)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("code", language.Code);
+            writer.WriteString("name", language.Name);
+            writer.WriteEndObject();
+        }
+        writer.WriteEndArray();
+
+        writer.WriteStartObject("strings");
+        foreach (var pair in localization.Strings)
+            writer.WriteString(pair.Key, pair.Value);
+        writer.WriteEndObject();
     }
 
     private async Task EvaluateLauncherScriptAsync(string script)
@@ -162,8 +202,7 @@ public partial class MainPage : ContentPage
                 ThemeService.Current.SetPreference(argument);
                 break;
             case "set_lang":
-                if (AppSettings.IsValidLanguage(argument))
-                    AppSettings.Language = argument;
+                LocalizationService.Current.SetPreference(argument);
                 break;
         }
         PushLauncherConfig();
@@ -468,7 +507,7 @@ public partial class MainPage : ContentPage
             {
                 await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
-                    await DisplayAlert("GPS", "Пожалуйста, включите GPS для работы приложения", "OK");
+                    await DisplayAlert(T("dialog.gps.title"), T("dialog.gps.message"), T("dialog.ok"));
                 });
                 return false;
             }
@@ -819,7 +858,7 @@ public partial class MainPage : ContentPage
         }
 #endif
 
-        await DisplayAlert("Кэш", "Локальный кэш приложений очищен.", "OK");
+        await DisplayAlert(T("dialog.cache.title"), T("dialog.cache.cleared"), T("dialog.ok"));
     }
 
     private async Task InjectLauncherScript()
@@ -1161,7 +1200,7 @@ public partial class MainPage : ContentPage
     {
         if (!_appUrls.ContainsKey(appName))
         {
-            await DisplayAlert("Ошибка", "Приложение не найдено", "OK");
+            await DisplayAlert(T("dialog.error.title"), T("dialog.app.notfound"), T("dialog.ok"));
             return false;
         }
 
@@ -1228,7 +1267,7 @@ public partial class MainPage : ContentPage
                 if (!await _usbService.TryConnectAsync(0, 9600, userInitiated: true))
                 {
                     LoadingIndicator.IsVisible = false;
-                    await DisplayAlert("USB", "Устройство не найдено", "OK");
+                    await DisplayAlert(T("dialog.usb.title"), T("dialog.usb.generic"), T("dialog.ok"));
                     return false;
                 }
             }
@@ -1266,7 +1305,7 @@ public partial class MainPage : ContentPage
                 else if (!_cacheService.HasLocalCopy(appName))
                 {
                     LoadingIndicator.IsVisible = false;
-                    await DisplayAlert("Ошибка", "Не удалось загрузить приложение", "OK");
+                    await DisplayAlert(T("dialog.error.title"), T("dialog.app.loadfailed"), T("dialog.ok"));
                     return false;
                 }
             }
@@ -1277,7 +1316,7 @@ public partial class MainPage : ContentPage
                 if (!_cacheService.HasLocalCopy(appName))
                 {
                     LoadingIndicator.IsVisible = false;
-                    await DisplayAlert("Ошибка", "Не удалось загрузить приложение", "OK");
+                    await DisplayAlert(T("dialog.error.title"), T("dialog.app.loadfailed"), T("dialog.ok"));
                     return false;
                 }
             }
@@ -1292,9 +1331,9 @@ public partial class MainPage : ContentPage
         {
             LoadingIndicator.IsVisible = false;
             await DisplayAlert(
-                "Нет сети",
-                "Приложение ещё не загружено. Подключите интернет для первой загрузки.",
-                "OK");
+                T("dialog.network.title"),
+                T("dialog.network.message"),
+                T("dialog.ok"));
             return false;
         }
 
@@ -1329,7 +1368,7 @@ public partial class MainPage : ContentPage
             System.Diagnostics.Debug.WriteLine($"[HandleFileSave] {ex.Message}");
             try
             {
-                await DisplayAlert("Ошибка", "Не удалось сохранить файл", "OK");
+                await DisplayAlert(T("dialog.error.title"), T("dialog.file.savefailed"), T("dialog.ok"));
             }
             catch { }
         }
@@ -1362,7 +1401,7 @@ public partial class MainPage : ContentPage
         intent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
         intent.AddFlags(Android.Content.ActivityFlags.NewTask);
 
-        var chooser = Android.Content.Intent.CreateChooser(intent, $"Сохранить {filename}") ?? intent;
+        var chooser = Android.Content.Intent.CreateChooser(intent, T("native.save.title", filename)) ?? intent;
         chooser.AddFlags(Android.Content.ActivityFlags.NewTask);
 
         Android.App.Application.Context.StartActivity(chooser);

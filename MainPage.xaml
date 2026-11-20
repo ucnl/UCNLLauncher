@@ -17,7 +17,6 @@
 
             <Button x:Name="BtnBack"
                     Grid.Column="0"
-                    Text="← Назад"
                     TextColor="{AppThemeBinding Light={StaticResource UcnlOnAccentLight}, Dark={StaticResource UcnlOnAccentDark}}"
                     BackgroundColor="{AppThemeBinding Light={StaticResource UcnlAccentLight}, Dark={StaticResource UcnlAccentDark}}"
                     CornerRadius="8"
