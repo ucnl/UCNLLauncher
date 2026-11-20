@@ -875,7 +875,9 @@ public partial class MainPage : ContentPage
 
     private async Task InjectLauncherScript()
     {
-        string script = @"
+        try
+        {
+            string script = @"
         window.setAppDisabled = function(appName, disabled, hint) {
             // Находим все элементы с data-app-name или onclick launchApp(appName)
             var els = document.querySelectorAll('[data-app-name=""' + appName + '""]');
@@ -898,11 +900,16 @@ public partial class MainPage : ContentPage
             });
         };
     ";
-        await MainWebView.EvaluateJavaScriptAsync(script);
-        bool hasDevice = await _usbService.TryConnectAsync(0, 9600);
-        if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) return;
-        await MainWebView.EvaluateJavaScriptAsync($"updateUsbStatus({hasDevice.ToString().ToLower()})");
-        StartUsbWatcher(hasDevice);
+            await MainWebView.EvaluateJavaScriptAsync(script);
+            bool hasDevice = _usbService.IsAnyPortOpen || await _usbService.TryConnectAsync(0, 9600);
+            if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) return;
+            await MainWebView.EvaluateJavaScriptAsync($"updateUsbStatus({hasDevice.ToString().ToLower()})");
+            StartUsbWatcher(hasDevice);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[InjectLauncherScript] {ex.Message}");
+        }
     }
 
     private void StartUsbWatcher(bool initialState)
@@ -1208,7 +1215,11 @@ public partial class MainPage : ContentPage
             cts.Dispose();
             _isLaunching = false;
             if (!navigated)
+            {
                 LoadingIndicator.IsVisible = false;
+                if (_isLauncherLoaded)
+                    _ = InjectLauncherScript();
+            }
         }
     }
 
