@@ -17,7 +17,7 @@
 		<ApplicationTitle>UC&amp;NL Launcher</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.unavlab.ucnllauncher</ApplicationId>
+		<ApplicationId>com.unavlab.launcher</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.2</ApplicationDisplayVersion>

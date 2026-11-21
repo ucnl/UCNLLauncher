@@ -277,7 +277,7 @@ public partial class MainPage : ContentPage
         androidWebView.Settings.SetGeolocationEnabled(true);
         if (!OperatingSystem.IsAndroidVersionAtLeast(24))
             androidWebView.Settings.SetGeolocationDatabasePath(
-                Android.App.Application.Context.FilesDir?.Path ?? "/data/data/com.unavlab.ucnllauncher/files");
+                Android.App.Application.Context.FilesDir?.Path ?? "/data/data/com.unavlab.launcher/files");
         _webChromeClient = new GeolocationWebChromeClient(handler);
         androidWebView.SetWebChromeClient(_webChromeClient);
         androidWebView.SetWebViewClient(new LauncherWebViewClient(handler));
@@ -1388,7 +1388,7 @@ public partial class MainPage : ContentPage
         var file = new Java.IO.File(tempPath);
         var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(
             Android.App.Application.Context,
-            "com.unavlab.ucnllauncher.fileprovider",
+            "com.unavlab.launcher.fileprovider",
             file);
 
         var intent = new Android.Content.Intent(Android.Content.Intent.ActionSend);

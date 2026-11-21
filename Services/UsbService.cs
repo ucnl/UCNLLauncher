@@ -17,7 +17,7 @@ public class UsbPortInfo
 
 public class UsbService
 {
-    private const string PermissionAction = "com.unavlab.ucnllauncher.USB_PERMISSION";
+    private const string PermissionAction = "com.unavlab.launcher.USB_PERMISSION";
     private const int DefaultBaudRate = 9600;
     private static readonly TimeSpan PermissionTimeout = TimeSpan.FromSeconds(60);
     private const int WriteWaitMs = 3000;
