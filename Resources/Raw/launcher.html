@@ -1,10 +1,117 @@
 ﻿<!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>UCNL Tools Launcher</title>
+    <meta name="color-scheme" content="light dark">
+    <title>UCNL Launcher</title>
+    <script>
+        (function () {
+            var root = document.documentElement;
+            try {
+                root.dataset.theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+            } catch (e) {
+                root.dataset.theme = 'dark';
+            }
+        })();
+    </script>
     <style>
+        :root[data-theme="dark"] {
+            --bg-1: #1a1a2e;
+            --bg-2: #16213e;
+            --bg-3: #0f3460;
+            --text: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.7);
+            --link: rgba(144, 202, 249, 0.7);
+            --card-bg: rgba(255, 255, 255, 0.08);
+            --card-bg-active: rgba(255, 255, 255, 0.15);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --card-shadow: none;
+            --icon-1: #667eea;
+            --icon-2: #764ba2;
+            --desc: rgba(255, 255, 255, 0.5);
+            --arrow: rgba(255, 255, 255, 0.3);
+            --sub-bg: rgba(255, 255, 255, 0.05);
+            --sub-bg-active: rgba(255, 255, 255, 0.12);
+            --sub-border: rgba(255, 255, 255, 0.08);
+            --sub-desc: rgba(255, 255, 255, 0.4);
+            --status-bg: rgba(255, 255, 255, 0.05);
+            --status-text: rgba(255, 255, 255, 0.6);
+            --dot-off: #ff6b6b;
+            --dot-on: #51cf66;
+            --tap-highlight: transparent;
+            --accent: #5a67d8;
+            --on-accent: #ffffff;
+            --focus: #90caf9;
+            --label: rgba(255, 255, 255, 0.6);
+            --control-bg: rgba(255, 255, 255, 0.06);
+            --control-bg-active: rgba(255, 255, 255, 0.14);
+            --control-border: rgba(255, 255, 255, 0.12);
+            --control-text: rgba(255, 255, 255, 0.8);
+            --sheet-bg: #1d2442;
+            --sheet-border: rgba(255, 255, 255, 0.1);
+            --sheet-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+            --sheet-handle: rgba(255, 255, 255, 0.22);
+            --backdrop: rgba(5, 8, 20, 0.6);
+            --divider: rgba(255, 255, 255, 0.08);
+            --danger: #ff8787;
+            --danger-bg: rgba(255, 107, 107, 0.1);
+            --danger-bg-active: rgba(255, 107, 107, 0.2);
+            --danger-border: rgba(255, 107, 107, 0.3);
+            --sync-bg: rgba(80, 180, 255, 0.15);
+            --sync-text: rgba(255, 255, 255, 0.9);
+            --badge-bg: rgba(80, 180, 255, 0.3);
+            --badge-text: #ffffff;
+        }
+
+        :root[data-theme="light"] {
+            --bg-1: #eef2ff;
+            --bg-2: #e3e9f8;
+            --bg-3: #cfdcf5;
+            --text: #1a1a2e;
+            --text-muted: #4a5068;
+            --link: #1f5fbf;
+            --card-bg: rgba(255, 255, 255, 0.72);
+            --card-bg-active: rgba(255, 255, 255, 0.95);
+            --card-border: rgba(26, 26, 46, 0.12);
+            --card-shadow: 0 1px 2px rgba(26, 26, 46, 0.06), 0 4px 16px rgba(76, 81, 191, 0.08);
+            --icon-1: #667eea;
+            --icon-2: #764ba2;
+            --desc: #4f5570;
+            --arrow: rgba(26, 26, 46, 0.4);
+            --sub-bg: rgba(255, 255, 255, 0.55);
+            --sub-bg-active: rgba(255, 255, 255, 0.9);
+            --sub-border: rgba(26, 26, 46, 0.1);
+            --sub-desc: #5a6078;
+            --status-bg: rgba(255, 255, 255, 0.6);
+            --status-text: #3f4560;
+            --dot-off: #e03131;
+            --dot-on: #2f9e44;
+            --tap-highlight: transparent;
+            --accent: #4c51bf;
+            --on-accent: #ffffff;
+            --focus: #1f5fbf;
+            --label: #4a5068;
+            --control-bg: rgba(26, 26, 46, 0.04);
+            --control-bg-active: rgba(26, 26, 46, 0.1);
+            --control-border: rgba(26, 26, 46, 0.14);
+            --control-text: #2f3450;
+            --sheet-bg: #f8faff;
+            --sheet-border: rgba(26, 26, 46, 0.08);
+            --sheet-shadow: 0 -8px 32px rgba(26, 26, 46, 0.18);
+            --sheet-handle: rgba(26, 26, 46, 0.2);
+            --backdrop: rgba(26, 26, 46, 0.35);
+            --divider: rgba(26, 26, 46, 0.1);
+            --danger: #c92a2a;
+            --danger-bg: rgba(224, 49, 49, 0.06);
+            --danger-bg-active: rgba(224, 49, 49, 0.14);
+            --danger-border: rgba(201, 42, 42, 0.3);
+            --sync-bg: rgba(31, 95, 191, 0.1);
+            --sync-text: #1f3f73;
+            --badge-bg: rgba(31, 95, 191, 0.16);
+            --badge-text: #1f4f99;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,7 +120,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background: linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 50%, var(--bg-3) 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -28,7 +135,7 @@
 
         .header {
             text-align: center;
-            color: white;
+            color: var(--text);
             margin-bottom: 40px;
         }
 
@@ -40,7 +147,12 @@
 
             .header p {
                 font-size: 14px;
-                opacity: 0.7;
+                color: var(--text-muted);
+            }
+
+            .header a {
+                color: var(--link);
+                text-decoration: none;
             }
 
         .apps-grid {
@@ -50,9 +162,10 @@
         }
 
         .app-card {
-            background: rgba(255, 255, 255, 0.08);
+            background: var(--card-bg);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--card-border);
+            box-shadow: var(--card-shadow);
             border-radius: 20px;
             padding: 24px;
             display: flex;
@@ -61,18 +174,18 @@
             cursor: pointer;
             transition: all 0.3s ease;
             user-select: none;
-            -webkit-tap-highlight-color: transparent;
+            -webkit-tap-highlight-color: var(--tap-highlight);
         }
 
             .app-card:active {
                 transform: scale(0.98);
-                background: rgba(255, 255, 255, 0.15);
+                background: var(--card-bg-active);
             }
 
         .app-icon {
             width: 56px;
             height: 56px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--icon-1) 0%, var(--icon-2) 100%);
             border-radius: 16px;
             display: flex;
             align-items: center;
@@ -88,17 +201,17 @@
         .app-name {
             font-size: 18px;
             font-weight: 600;
-            color: white;
+            color: var(--text);
             margin-bottom: 4px;
         }
 
         .app-desc {
             font-size: 13px;
-            color: rgba(255, 255, 255, 0.5);
+            color: var(--desc);
         }
 
         .app-arrow {
-            color: rgba(255, 255, 255, 0.3);
+            color: var(--arrow);
             font-size: 20px;
             transition: transform 0.3s ease;
         }
@@ -107,7 +220,6 @@
             transform: rotate(90deg);
         }
 
-        /* Стили для подменю */
         .submenu {
             max-height: 0;
             overflow: hidden;
@@ -123,8 +235,8 @@
             }
 
         .submenu-item {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--sub-bg);
+            border: 1px solid var(--sub-border);
             border-radius: 12px;
             padding: 14px 18px;
             display: flex;
@@ -135,7 +247,7 @@
         }
 
             .submenu-item:active {
-                background: rgba(255, 255, 255, 0.12);
+                background: var(--sub-bg-active);
                 transform: scale(0.98);
             }
 
@@ -147,18 +259,18 @@
         .submenu-name {
             font-size: 14px;
             font-weight: 500;
-            color: white;
+            color: var(--text);
             flex: 1;
         }
 
         .submenu-desc {
             font-size: 11px;
-            color: rgba(255, 255, 255, 0.4);
+            color: var(--sub-desc);
             margin-top: 2px;
         }
 
         .submenu-arrow {
-            color: rgba(255, 255, 255, 0.3);
+            color: var(--arrow);
             font-size: 16px;
         }
 
@@ -166,9 +278,9 @@
             text-align: center;
             margin-top: 30px;
             padding: 12px;
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--status-bg);
             border-radius: 12px;
-            color: rgba(255, 255, 255, 0.6);
+            color: var(--status-text);
             font-size: 13px;
         }
 
@@ -178,30 +290,328 @@
             height: 8px;
             border-radius: 50%;
             margin-right: 8px;
-            background: #ff6b6b;
+            background: var(--dot-off);
         }
 
             .status-dot.connected {
-                background: #51cf66;
+                background: var(--dot-on);
             }
+
+        .sync-status {
+            display: none;
+            margin-top: 16px;
+            background: var(--sync-bg);
+            color: var(--sync-text);
+        }
+
+        .app-syncing {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .app-download-badge {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            background: var(--badge-bg);
+            color: var(--badge-text);
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+
+        html:not(.ucnl-ready) body > * {
+            visibility: hidden;
+        }
+
+        html.theme-switching *,
+        html.theme-switching *::before,
+        html.theme-switching *::after {
+            transition: none !important;
+        }
+
+        button {
+            font: inherit;
+            color: inherit;
+            background: none;
+            border: 0;
+            cursor: pointer;
+            -webkit-tap-highlight-color: var(--tap-highlight);
+        }
+
+            button:focus {
+                outline: none;
+            }
+
+            button:focus-visible {
+                outline: 2px solid var(--focus);
+                outline-offset: 2px;
+            }
+
+        .header-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 4px;
+        }
+
+        .icon-btn {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--control-bg);
+            border: 1px solid var(--control-border);
+            transition: background 0.2s ease;
+        }
+
+            .icon-btn:active {
+                background: var(--control-bg-active);
+            }
+
+            .icon-btn svg {
+                width: 22px;
+                height: 22px;
+                fill: none;
+                stroke: var(--text);
+                stroke-width: 1.8;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+
+        body.settings-open {
+            overflow: hidden;
+        }
+
+        .sheet-backdrop {
+            position: fixed;
+            inset: 0;
+            background: var(--backdrop);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+            z-index: 10;
+        }
+
+        body.settings-open .sheet-backdrop {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.25s ease;
+        }
+
+        .sheet {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 500px;
+            max-height: calc(100vh - 16px);
+            max-height: calc(100dvh - 16px);
+            display: flex;
+            flex-direction: column;
+            background: var(--sheet-bg);
+            color: var(--text);
+            border: 1px solid var(--sheet-border);
+            border-bottom: 0;
+            border-radius: 20px 20px 0 0;
+            box-shadow: var(--sheet-shadow);
+            transform: translateY(100%);
+            visibility: hidden;
+            transition: transform 0.3s ease, visibility 0s linear 0.3s;
+            z-index: 11;
+        }
+
+        body.settings-open .sheet {
+            transform: none;
+            visibility: visible;
+            transition: transform 0.3s ease;
+        }
+
+        .sheet-handle {
+            width: 40px;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--sheet-handle);
+            margin: 10px auto 0;
+            flex-shrink: 0;
+        }
+
+        .sheet-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 16px 8px 20px;
+            flex-shrink: 0;
+        }
+
+            .sheet-header h2 {
+                font-size: 20px;
+                font-weight: 600;
+            }
+
+        .sheet-body {
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            padding: 8px 20px calc(24px + env(safe-area-inset-bottom));
+        }
+
+        .setting-group {
+            padding: 16px 0;
+            border-top: 1px solid var(--divider);
+        }
+
+            .setting-group:first-child {
+                border-top: 0;
+                padding-top: 4px;
+            }
+
+            .setting-group h3 {
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+                color: var(--label);
+                margin-bottom: 12px;
+            }
+
+        .segmented {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 14px;
+            background: var(--control-bg);
+            border: 1px solid var(--control-border);
+        }
+
+        .segment {
+            flex: 1 1 0;
+            min-width: 0;
+            min-height: 44px;
+            padding: 8px 6px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--control-text);
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+            .segment span {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .segment[aria-pressed="true"] {
+                background: var(--accent);
+                color: var(--on-accent);
+                font-weight: 600;
+            }
+
+        .option-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            min-height: 48px;
+            padding: 10px 16px;
+            border-radius: 12px;
+            text-align: left;
+            font-size: 15px;
+            color: var(--text);
+            background: var(--control-bg);
+            border: 1px solid var(--control-border);
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+            .option:active {
+                background: var(--control-bg-active);
+            }
+
+            .option[aria-pressed="true"] {
+                border-color: var(--accent);
+            }
+
+            .option svg {
+                width: 20px;
+                height: 20px;
+                flex-shrink: 0;
+                fill: none;
+                stroke: var(--accent);
+                stroke-width: 2.4;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+                visibility: hidden;
+            }
+
+            .option[aria-pressed="true"] svg {
+                visibility: visible;
+            }
+
+        .danger-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            min-height: 48px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--danger);
+            background: var(--danger-bg);
+            border: 1px solid var(--danger-border);
+            transition: background 0.2s ease;
+        }
+
+            .danger-btn:active {
+                background: var(--danger-bg-active);
+            }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                transition: none !important;
+                animation: none !important;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>⚡ UCNL Launcher</h1>
-            <p>Утилиты для работы с оборудованием <a href="https://docs.unavlab.com" target="_blank" style="color: #90caf9; text-decoration: none;">UC&amp;NL</a></p>
+            <div class="header-actions">
+                <button type="button" class="icon-btn" id="settingsButton" data-i18n-aria-label="settings.open" aria-haspopup="dialog" aria-controls="settingsPanel" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+                </button>
+            </div>
+            <h1><span aria-hidden="true">⚡</span> <span>UCNL Launcher</span></h1>
+            <p><span data-i18n="launcher.subtitle"></span> <a href="https://docs.unavlab.com" target="_blank">UC&amp;NL</a></p>
         </div>
 
         <div class="apps-grid">
 
-            <!-- Группа Zima2 -->
             <div>
                 <div class="app-card" onclick="toggleSubmenu('zima2-submenu', this)">
                     <div class="app-icon">🐙</div>
                     <div class="app-info">
                         <div class="app-name">Zima2</div>
-                        <div class="app-desc">Приложения для работы с системой Zima2</div>
+                        <div class="app-desc" data-i18n="launcher.app.zima2.desc"></div>
                     </div>
                     <div class="app-arrow">→</div>
                 </div>
@@ -210,7 +620,7 @@
                         <span class="submenu-icon">🐙</span>
                         <div class="submenu-info">
                             <div class="submenu-name">AzimuthWebSuite</div>
-                            <div class="submenu-desc">Работа с системой Zima2 USBL</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.azimuth.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -218,20 +628,19 @@
                         <span class="submenu-icon">🎯</span>
                         <div class="submenu-info">
                             <div class="submenu-name">AzimuthLBLX</div>
-                            <div class="submenu-desc">Виртуальная длинная база</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.lblx.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Группа uWave -->
             <div>
                 <div class="app-card" onclick="toggleSubmenu('uwave-submenu', this)">
                     <div class="app-icon">🌊</div>
                     <div class="app-info">
                         <div class="app-name">uWave</div>
-                        <div class="app-desc">Приложения для работы с модемами uWave</div>
+                        <div class="app-desc" data-i18n="launcher.app.uwave.desc"></div>
                     </div>
                     <div class="app-arrow">→</div>
                 </div>
@@ -240,7 +649,7 @@
                         <span class="submenu-icon">🌊</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uWaveSuite</div>
-                            <div class="submenu-desc">Трекинг, USBL, VLBL для модемов uWave</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.uwavesuite.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -248,7 +657,7 @@
                         <span class="submenu-icon">📡</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uWaver</div>
-                            <div class="submenu-desc">Демонстрация протокола uWave</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.uwaver.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -260,18 +669,17 @@
                 <div class="app-icon">📱</div>
                 <div class="app-info">
                     <div class="app-name">RedPhoneDX Config</div>
-                    <div class="app-desc">Конфигуратор водолазных станций связи RedPhone-DX</div>
+                    <div class="app-desc" data-i18n="launcher.app.redphone.desc"></div>
                 </div>
                 <div class="app-arrow">→</div>
             </div>
 
-            <!-- Группа Утилиты -->
             <div>
                 <div class="app-card" onclick="toggleSubmenu('utils-submenu', this)">
                     <div class="app-icon">🔧</div>
                     <div class="app-info">
-                        <div class="app-name">Утилиты</div>
-                        <div class="app-desc">Вспомогательные инструменты</div>
+                        <div class="app-name" data-i18n="launcher.utils.name"></div>
+                        <div class="app-desc" data-i18n="launcher.utils.desc"></div>
                     </div>
                     <div class="app-arrow">→</div>
                 </div>
@@ -280,7 +688,7 @@
                         <span class="submenu-icon">📡</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uGNSS-Monitor</div>
-                            <div class="submenu-desc">Монитор GNSS-приемника</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.ugnss.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -288,7 +696,7 @@
                         <span class="submenu-icon">💻</span>
                         <div class="submenu-info">
                             <div class="submenu-name">uConsole</div>
-                            <div class="submenu-desc">Универсальная консоль</div>
+                            <div class="submenu-desc" data-i18n="launcher.app.uconsole.desc"></div>
                         </div>
                         <span class="submenu-arrow">→</span>
                     </div>
@@ -298,28 +706,81 @@
 
         <div class="status-bar">
             <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">Проверка USB...</span>
+            <span id="statusText" data-i18n="launcher.usb.checking"></span>
         </div>
 
-        <div id="syncStatus" class="status-bar" style="display: none; margin-top: 16px; background: rgba(80, 180, 255, 0.15); color: rgba(255, 255, 255, 0.9);">
-            Загрузка приложений...
-        </div>
-
-        <div class="status-bar" style="margin-top: 16px; cursor: pointer;" onclick="confirmClearCache()">
-            🗑 Очистить кэш приложений
-        </div>
+        <div id="syncStatus" class="status-bar sync-status" role="status" aria-live="polite"></div>
 
     </div>
 
+    <div class="sheet-backdrop" id="settingsBackdrop"></div>
+
+    <section class="sheet" id="settingsPanel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-hidden="true">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="sheet-header">
+            <h2 id="settingsTitle" data-i18n="settings.title"></h2>
+            <button type="button" class="icon-btn" id="settingsClose" data-i18n-aria-label="settings.close">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+        </div>
+        <div class="sheet-body">
+            <div class="setting-group">
+                <h3 id="themeLabel" data-i18n="settings.theme"></h3>
+                <div class="segmented" id="themeOptions" role="group" aria-labelledby="themeLabel">
+                    <button type="button" class="segment" data-theme-value="system" aria-pressed="false"><span data-i18n="settings.theme.system"></span></button>
+                    <button type="button" class="segment" data-theme-value="light" aria-pressed="false"><span data-i18n="settings.theme.light"></span></button>
+                    <button type="button" class="segment" data-theme-value="dark" aria-pressed="false"><span data-i18n="settings.theme.dark"></span></button>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <h3 id="languageLabel" data-i18n="settings.language"></h3>
+                <div class="option-list" id="languageList" role="group" aria-labelledby="languageLabel">
+                    <button type="button" class="option" data-lang-value="system" aria-pressed="false">
+                        <span class="option-label" data-i18n="settings.language.system"></span>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <button type="button" class="danger-btn" id="clearCacheButton">
+                    <span aria-hidden="true">🗑</span>
+                    <span data-i18n="settings.cache.clear"></span>
+                </button>
+            </div>
+        </div>
+    </section>
+
     <script>
-        // Функция для переключения подменю
+        var ucnlStrings = {};
+        var ucnlStringsLoaded = false;
+
+        function t(key) {
+            var value = ucnlStrings[key];
+            return typeof value === 'string' ? value : key;
+        }
+
+        function ucnlTranslate(scope) {
+            if (!ucnlStringsLoaded) return;
+            var nodes = (scope || document).querySelectorAll('[data-i18n], [data-i18n-aria-label], [data-i18n-title]');
+            for (var i = 0; i < nodes.length; i++) {
+                var node = nodes[i];
+                var key = node.getAttribute('data-i18n');
+                if (key) node.textContent = t(key);
+                key = node.getAttribute('data-i18n-aria-label');
+                if (key) node.setAttribute('aria-label', t(key));
+                key = node.getAttribute('data-i18n-title');
+                if (key) node.setAttribute('title', t(key));
+            }
+        }
+
         window.toggleSubmenu = function (submenuId, cardElement) {
             const submenu = document.getElementById(submenuId);
             if (submenu) {
                 submenu.classList.toggle('active');
                 cardElement.classList.toggle('expanded');
 
-                // Закрываем другие открытые подменю
                 const allSubmenus = document.querySelectorAll('.submenu.active');
                 const allCards = document.querySelectorAll('.app-card.expanded');
 
@@ -349,20 +810,260 @@
             var dot = document.getElementById('statusDot');
             var text = document.getElementById('statusText');
 
-            if (connected) {
-                dot.className = 'status-dot connected';
-                text.textContent = 'USB устройство подключено';
-            } else {
-                dot.className = 'status-dot';
-                text.textContent = 'USB устройство не найдено';
-            }
+            dot.className = connected ? 'status-dot connected' : 'status-dot';
+            text.setAttribute('data-i18n', connected ? 'launcher.usb.connected' : 'launcher.usb.disconnected');
+            ucnlTranslate(text.parentNode);
+        };
+
+        window.setAppDisabled = function (appName, disabled, hint) {
+            var els = document.querySelectorAll('[data-app-name="' + appName + '"]');
+            els.forEach(function (el) {
+                el.classList.toggle('app-syncing', !!disabled);
+                var badge = el.querySelector('.app-download-badge');
+                if (disabled) {
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'app-download-badge';
+                        el.appendChild(badge);
+                    }
+                    badge.textContent = hint || t('launcher.sync.badge');
+                } else if (badge) {
+                    badge.remove();
+                }
+            });
         };
 
         window.confirmClearCache = function () {
-            if (confirm('Очистить кэш всех приложений? После очистки потребуется интернет для первого запуска.')) {
+            if (confirm(t('launcher.cache.confirm'))) {
                 window.location.href = 'app://clear_cache';
             }
         };
+
+        (function () {
+            var root = document.documentElement;
+            var container = document.querySelector('.container');
+            var settingsButton = document.getElementById('settingsButton');
+            var panel = document.getElementById('settingsPanel');
+            var backdrop = document.getElementById('settingsBackdrop');
+            var closeButton = document.getElementById('settingsClose');
+            var themeOptions = document.getElementById('themeOptions');
+            var languageList = document.getElementById('languageList');
+            var clearCacheButton = document.getElementById('clearCacheButton');
+            var state = { themePref: 'system', langPref: 'system' };
+            var languagesSignature = '';
+            var settingsOpen = false;
+            var lastFocus = null;
+            var revealTimer = null;
+
+            function sendToNative(url) {
+                try {
+                    window.location.href = url;
+                } catch (e) { }
+            }
+
+            function systemTheme() {
+                try {
+                    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+                } catch (e) {
+                    return 'dark';
+                }
+            }
+
+            function setTheme(theme) {
+                var value = theme === 'light' ? 'light' : 'dark';
+                if (root.dataset.theme !== value) {
+                    root.classList.add('theme-switching');
+                    root.dataset.theme = value;
+                    void root.offsetWidth;
+                    window.requestAnimationFrame(function () {
+                        window.requestAnimationFrame(function () {
+                            root.classList.remove('theme-switching');
+                        });
+                    });
+                }
+                var meta = document.querySelector('meta[name="color-scheme"]');
+                if (meta) meta.setAttribute('content', value);
+            }
+
+            function reveal() {
+                if (revealTimer !== null) {
+                    clearTimeout(revealTimer);
+                    revealTimer = null;
+                }
+                root.classList.add('ucnl-ready');
+            }
+
+            function markPressed(group, attribute, value) {
+                var items = group.querySelectorAll('[' + attribute + ']');
+                for (var i = 0; i < items.length; i++) {
+                    items[i].setAttribute('aria-pressed', items[i].getAttribute(attribute) === value ? 'true' : 'false');
+                }
+            }
+
+            function renderSettings() {
+                markPressed(themeOptions, 'data-theme-value', state.themePref);
+                markPressed(languageList, 'data-lang-value', state.langPref);
+            }
+
+            function renderLanguages(languages) {
+                if (!Array.isArray(languages)) return;
+                var signature = JSON.stringify(languages);
+                if (signature === languagesSignature) return;
+                languagesSignature = signature;
+
+                var systemButton = languageList.querySelector('[data-lang-value="system"]');
+                var checkIcon = systemButton ? systemButton.querySelector('svg') : null;
+                var existing = languageList.querySelectorAll('[data-lang-value]');
+                for (var i = 0; i < existing.length; i++) {
+                    if (existing[i] !== systemButton) languageList.removeChild(existing[i]);
+                }
+
+                for (var j = 0; j < languages.length; j++) {
+                    var item = languages[j];
+                    if (!item || typeof item.code !== 'string' || !item.code) continue;
+                    var button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'option';
+                    button.setAttribute('data-lang-value', item.code);
+                    button.setAttribute('aria-pressed', 'false');
+                    button.setAttribute('lang', item.code);
+                    var label = document.createElement('span');
+                    label.className = 'option-label';
+                    label.textContent = typeof item.name === 'string' && item.name ? item.name : item.code;
+                    button.appendChild(label);
+                    if (checkIcon) button.appendChild(checkIcon.cloneNode(true));
+                    languageList.appendChild(button);
+                }
+            }
+
+            function focusableInPanel() {
+                return Array.prototype.filter.call(
+                    panel.querySelectorAll('button:not([disabled])'),
+                    function (el) { return el.offsetParent !== null; });
+            }
+
+            function openSettings() {
+                if (settingsOpen) return;
+                settingsOpen = true;
+                lastFocus = document.activeElement;
+                renderSettings();
+                document.body.classList.add('settings-open');
+                panel.setAttribute('aria-hidden', 'false');
+                settingsButton.setAttribute('aria-expanded', 'true');
+                container.setAttribute('aria-hidden', 'true');
+                container.inert = true;
+                try {
+                    closeButton.focus({ preventScroll: true });
+                } catch (e) {
+                    closeButton.focus();
+                }
+                sendToNative('app://settings_open');
+            }
+
+            function closeSettings(fromNative) {
+                if (!settingsOpen) return false;
+                settingsOpen = false;
+                document.body.classList.remove('settings-open');
+                panel.setAttribute('aria-hidden', 'true');
+                settingsButton.setAttribute('aria-expanded', 'false');
+                container.removeAttribute('aria-hidden');
+                container.inert = false;
+                var target = lastFocus && document.body.contains(lastFocus) ? lastFocus : settingsButton;
+                lastFocus = null;
+                try {
+                    target.focus({ preventScroll: true });
+                } catch (e) { }
+                if (!fromNative) sendToNative('app://settings_closed');
+                return true;
+            }
+
+            function chooseTheme(value) {
+                if (value !== 'system' && value !== 'light' && value !== 'dark') return;
+                if (value === state.themePref) return;
+                state.themePref = value;
+                renderSettings();
+                sendToNative('app://set_theme?' + encodeURIComponent(value));
+            }
+
+            function chooseLanguage(value) {
+                if (!value || value === state.langPref) return;
+                state.langPref = value;
+                renderSettings();
+                sendToNative('app://set_lang?' + encodeURIComponent(value));
+            }
+
+            settingsButton.addEventListener('click', openSettings);
+            closeButton.addEventListener('click', function () { closeSettings(false); });
+            backdrop.addEventListener('click', function () { closeSettings(false); });
+
+            themeOptions.addEventListener('click', function (e) {
+                var target = e.target.closest('[data-theme-value]');
+                if (target) chooseTheme(target.getAttribute('data-theme-value'));
+            });
+
+            languageList.addEventListener('click', function (e) {
+                var target = e.target.closest('[data-lang-value]');
+                if (target) chooseLanguage(target.getAttribute('data-lang-value'));
+            });
+
+            clearCacheButton.addEventListener('click', function () {
+                window.confirmClearCache();
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (!settingsOpen) return;
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeSettings(false);
+                    return;
+                }
+                if (e.key !== 'Tab') return;
+                var items = focusableInPanel();
+                if (items.length === 0) return;
+                var first = items[0];
+                var last = items[items.length - 1];
+                if (e.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            });
+
+            window.ucnlApplyConfig = function (cfg) {
+                if (!cfg || typeof cfg !== 'object') return;
+                setTheme(cfg.theme === 'light' || cfg.theme === 'dark' ? cfg.theme : systemTheme());
+                if (typeof cfg.themePref === 'string') state.themePref = cfg.themePref;
+                if (typeof cfg.langPref === 'string') state.langPref = cfg.langPref;
+                if (typeof cfg.lang === 'string' && cfg.lang) root.setAttribute('lang', cfg.lang);
+                if (cfg.strings && typeof cfg.strings === 'object') {
+                    ucnlStrings = cfg.strings;
+                    ucnlStringsLoaded = true;
+                }
+                renderLanguages(cfg.languages);
+                ucnlTranslate(document);
+                renderSettings();
+                reveal();
+            };
+
+            window.ucnlCloseSettings = function (fromNative) {
+                return closeSettings(fromNative === true);
+            };
+
+            renderSettings();
+
+            revealTimer = setTimeout(function () {
+                revealTimer = null;
+                if (root.classList.contains('ucnl-ready')) return;
+                setTheme(systemTheme());
+                reveal();
+            }, 3000);
+
+            window.addEventListener('load', function () {
+                setTimeout(function () { sendToNative('app://ready'); }, 0);
+            });
+        })();
     </script>
 </body>
 </html>

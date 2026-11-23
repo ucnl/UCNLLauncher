@@ -56,8 +56,10 @@ public class CompassService
         }
     }
 
-    private void OnSensorChanged(SensorEvent e)
+    private void OnSensorChanged(SensorEvent? e)
     {
+        if (e?.Values == null) return;
+
         if (e.Sensor?.Type == SensorType.Accelerometer)
         {
             _gravity = e.Values.ToArray();
@@ -89,16 +91,16 @@ public class CompassService
 
     private class SensorEventListener : Java.Lang.Object, ISensorEventListener
     {
-        private readonly Action<SensorEvent> _callback;
+        private readonly Action<SensorEvent?> _callback;
 
-        public SensorEventListener(Action<SensorEvent> callback)
+        public SensorEventListener(Action<SensorEvent?> callback)
         {
             _callback = callback;
         }
 
         public void OnAccuracyChanged(Sensor? sensor, SensorStatus accuracy) { }
 
-        public void OnSensorChanged(SensorEvent e)
+        public void OnSensorChanged(SensorEvent? e)
         {
             _callback?.Invoke(e);
         }

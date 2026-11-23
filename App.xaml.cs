@@ -1,4 +1,6 @@
-﻿namespace UCNLLauncher
+﻿using UCNLLauncher.Services;
+
+namespace UCNLLauncher
 {
     public partial class App : Application
     {
@@ -6,7 +8,23 @@
         {
             InitializeComponent();
 
+            ThemeService.Current.Initialize(this);
+            LocalizationService.Current.Initialize();
+
             MainPage = new AppShell();
+        }
+
+        protected override Window CreateWindow(IActivationState? activationState)
+        {
+            var window = base.CreateWindow(activationState);
+            window.Activated += OnWindowActivated;
+            return window;
+        }
+
+        private static void OnWindowActivated(object? sender, EventArgs e)
+        {
+            ThemeService.Current.Refresh();
+            LocalizationService.Current.Refresh();
         }
     }
 }

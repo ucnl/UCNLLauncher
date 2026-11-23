@@ -28,6 +28,24 @@
     <Color x:Key="Gray900">#212121</Color>
     <Color x:Key="Gray950">#141414</Color>
 
+    <Color x:Key="UcnlBackgroundLight">#EEF2FF</Color>
+    <Color x:Key="UcnlBackgroundDark">#1A1A2E</Color>
+    <Color x:Key="UcnlToolbarLight">#EEF2FF</Color>
+    <Color x:Key="UcnlToolbarDark">#1A1A2E</Color>
+    <Color x:Key="UcnlOnToolbarLight">#1A1A2E</Color>
+    <Color x:Key="UcnlOnToolbarDark">#FFFFFF</Color>
+    <Color x:Key="UcnlAccentLight">#4C51BF</Color>
+    <Color x:Key="UcnlAccentDark">#667EEA</Color>
+    <Color x:Key="UcnlOnAccentLight">#FFFFFF</Color>
+    <Color x:Key="UcnlOnAccentDark">#FFFFFF</Color>
+    <Color x:Key="UcnlStatusBarLight">#EEF2FF</Color>
+    <Color x:Key="UcnlStatusBarDark">#1A1A2E</Color>
+    <Color x:Key="UcnlStatusBarLegacyLight">#3C4199</Color>
+    <Color x:Key="UcnlNavigationBarLight">#E3E9F8</Color>
+    <Color x:Key="UcnlNavigationBarDark">#16213E</Color>
+    <Color x:Key="UcnlNavigationBarLegacyLight">#16213E</Color>
+    <Color x:Key="UcnlPwaBackground">#FFFFFF</Color>
+
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
     <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>

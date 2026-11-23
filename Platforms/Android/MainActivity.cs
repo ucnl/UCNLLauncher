@@ -1,59 +1,28 @@
-﻿using Android;
-using Android.App;
+﻿using Android.App;
 using Android.Content.PM;
-using Android.OS;
-using AndroidX.Core.App;
-using AndroidX.Core.Content;
+using Android.Content.Res;
+using Android.Hardware.Usb;
+using UCNLLauncher.Services;
 
 namespace UCNLLauncher
 {
-    [Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+    [IntentFilter(new[] { UsbManager.ActionUsbDeviceAttached })]
+    [MetaData(UsbManager.ActionUsbDeviceAttached, Resource = "@xml/device_filter")]
+    [Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density | ConfigChanges.Locale | ConfigChanges.LayoutDirection)]
     public class MainActivity : MauiAppCompatActivity
     {
-        public static MainActivity? Instance { get; private set; }
-
-        protected override void OnCreate(Bundle? savedInstanceState)
+        public override void OnConfigurationChanged(Configuration newConfig)
         {
-            base.OnCreate(savedInstanceState);
-            Instance = this;
-
-            var permissions = new[]
-            {
-                Manifest.Permission.AccessFineLocation,
-                Manifest.Permission.AccessCoarseLocation,
-                Manifest.Permission.AccessBackgroundLocation
-            };
-
-            var missing = permissions.Where(p =>
-                ContextCompat.CheckSelfPermission(this, p) != Permission.Granted).ToArray();
-
-            if (missing.Length > 0)
-            {
-                ActivityCompat.RequestPermissions(this, missing, 1);
-            }
-        }
-
-        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
-        {
-            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-
-            if (requestCode == 1)
-            {
-                for (int i = 0; i < permissions.Length; i++)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[Permission] {permissions[i]}: {(grantResults[i] == Permission.Granted ? "Granted" : "Denied")}");
-                }
-            }
+            base.OnConfigurationChanged(newConfig);
+            LocalizationService.Current.Refresh();
         }
 
         protected override void OnActivityResult(int requestCode, Result resultCode, Android.Content.Intent? data)
         {
             base.OnActivityResult(requestCode, resultCode, data);
 
-            if (Microsoft.Maui.Controls.Application.Current?.MainPage is UCNLLauncher.MainPage page)
-            {
-                page.HandleFileChooserResult(requestCode, resultCode, data);
-            }
+            if (requestCode == MainPage.GeolocationWebChromeClient.FileChooserRequestCode)
+                MainPage.GeolocationWebChromeClient.Active?.HandleActivityResult(requestCode, resultCode, data);
         }
     }
 }
