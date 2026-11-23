@@ -75,6 +75,9 @@ public partial class MainPage : ContentPage
 
     private static string T(string key, params object[] args) => LocalizationService.Current.T(key, args);
 
+    private static string JsString(string? value) =>
+        "'" + System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(value ?? "") + "'";
+
     private void ApplyNativeTexts()
     {
         BtnBack.Text = "← " + T("native.back");
@@ -948,7 +951,7 @@ public partial class MainPage : ContentPage
             string initStub = $@"
             if (window._initStub) {{
                 window._initStub({{
-                    appName: '{_currentAppName}',
+                    appName: {JsString(_currentAppName)},
                     preferredPort: 0
                 }});
             }}
@@ -1130,15 +1133,9 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            var escaped = text.Replace("\\", "\\\\").Replace("'", "\\'");
-            await MainWebView.EvaluateJavaScriptAsync($@"
-                (function() {{
-                    var el = document.getElementById('syncStatus');
-                    if (!el) return;
-                    el.textContent = '{escaped}';
-                    el.style.display = {(visible ? "'block'" : "'none'")};
-                }})();
-            ");
+            await MainWebView.EvaluateJavaScriptAsync(
+                "(function(){var el=document.getElementById('syncStatus');if(!el)return;" +
+                $"el.textContent={JsString(text)};el.style.display={JsString(visible ? "block" : "none")};}})()");
         }
         catch { }
     }
@@ -1147,15 +1144,9 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            var escapedApp = appName.Replace("'", "\\'");
-            var escapedHint = (hint ?? "").Replace("\\", "\\\\").Replace("'", "\\'");
-            await MainWebView.EvaluateJavaScriptAsync($@"
-                (function() {{
-                    if (typeof window.setAppDisabled === 'function') {{
-                        window.setAppDisabled('{escapedApp}', {(disabled ? "true" : "false")}, '{escapedHint}');
-                    }}
-                }})();
-            ");
+            await MainWebView.EvaluateJavaScriptAsync(
+                "if(typeof window.setAppDisabled==='function')" +
+                $"window.setAppDisabled({JsString(appName)},{(disabled ? "true" : "false")},{JsString(hint)});");
         }
         catch { }
     }
@@ -1487,10 +1478,9 @@ public partial class MainPage : ContentPage
         {
             try
             {
-                var escaped = message.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n");
                 await MainWebView.EvaluateJavaScriptAsync(
-                    $"window._nativeLogError = '{escaped}'; " +
-                    $"if (window._nativeLogContent_error) window._nativeLogContent_error();");
+                    $"window._nativeLogError = {JsString(message)}; " +
+                    "if (window._nativeLogContent_error) window._nativeLogContent_error();");
             }
             catch { }
         });
