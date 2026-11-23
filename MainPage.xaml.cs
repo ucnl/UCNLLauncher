@@ -870,29 +870,6 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            string script = @"
-        window.setAppDisabled = function(appName, disabled, hint) {
-            var els = document.querySelectorAll('[data-app-name=""' + appName + '""]');
-            els.forEach(function(el) {
-                el.style.pointerEvents = disabled ? 'none' : '';
-                el.style.opacity = disabled ? '0.5' : '';
-                el.style.position = 'relative';
-                var badge = el.querySelector('.app-download-badge');
-                if (disabled) {
-                    if (!badge) {
-                        badge = document.createElement('div');
-                        badge.className = 'app-download-badge';
-                        badge.style.cssText = 'position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:11px; background:rgba(80,180,255,0.3); color:#fff; padding:4px 8px; border-radius:8px;';
-                        el.appendChild(badge);
-                    }
-                    badge.textContent = hint || t('launcher.sync.badge');
-                } else if (badge) {
-                    badge.remove();
-                }
-            });
-        };
-    ";
-            await MainWebView.EvaluateJavaScriptAsync(script);
             bool hasDevice = _usbService.IsAnyPortOpen || await _usbService.TryConnectAsync(0, 9600);
             if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) return;
             await MainWebView.EvaluateJavaScriptAsync($"updateUsbStatus({hasDevice.ToString().ToLower()})");

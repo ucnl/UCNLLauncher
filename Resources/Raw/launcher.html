@@ -58,6 +58,10 @@
             --danger-bg: rgba(255, 107, 107, 0.1);
             --danger-bg-active: rgba(255, 107, 107, 0.2);
             --danger-border: rgba(255, 107, 107, 0.3);
+            --sync-bg: rgba(80, 180, 255, 0.15);
+            --sync-text: rgba(255, 255, 255, 0.9);
+            --badge-bg: rgba(80, 180, 255, 0.3);
+            --badge-text: #ffffff;
         }
 
         :root[data-theme="light"] {
@@ -102,6 +106,10 @@
             --danger-bg: rgba(224, 49, 49, 0.06);
             --danger-bg-active: rgba(224, 49, 49, 0.14);
             --danger-border: rgba(201, 42, 42, 0.3);
+            --sync-bg: rgba(31, 95, 191, 0.1);
+            --sync-text: #1f3f73;
+            --badge-bg: rgba(31, 95, 191, 0.16);
+            --badge-text: #1f4f99;
         }
 
         * {
@@ -288,6 +296,31 @@
             .status-dot.connected {
                 background: var(--dot-on);
             }
+
+        .sync-status {
+            display: none;
+            margin-top: 16px;
+            background: var(--sync-bg);
+            color: var(--sync-text);
+        }
+
+        .app-syncing {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .app-download-badge {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            background: var(--badge-bg);
+            color: var(--badge-text);
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
 
         html:not(.ucnl-ready) body > * {
             visibility: hidden;
@@ -676,7 +709,7 @@
             <span id="statusText" data-i18n="launcher.usb.checking"></span>
         </div>
 
-        <div id="syncStatus" class="status-bar" style="display: none; margin-top: 16px; background: rgba(80, 180, 255, 0.15); color: rgba(255, 255, 255, 0.9);"></div>
+        <div id="syncStatus" class="status-bar sync-status" role="status" aria-live="polite"></div>
 
     </div>
 
@@ -780,6 +813,24 @@
             dot.className = connected ? 'status-dot connected' : 'status-dot';
             text.setAttribute('data-i18n', connected ? 'launcher.usb.connected' : 'launcher.usb.disconnected');
             ucnlTranslate(text.parentNode);
+        };
+
+        window.setAppDisabled = function (appName, disabled, hint) {
+            var els = document.querySelectorAll('[data-app-name="' + appName + '"]');
+            els.forEach(function (el) {
+                el.classList.toggle('app-syncing', !!disabled);
+                var badge = el.querySelector('.app-download-badge');
+                if (disabled) {
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'app-download-badge';
+                        el.appendChild(badge);
+                    }
+                    badge.textContent = hint || t('launcher.sync.badge');
+                } else if (badge) {
+                    badge.remove();
+                }
+            });
         };
 
         window.confirmClearCache = function () {
