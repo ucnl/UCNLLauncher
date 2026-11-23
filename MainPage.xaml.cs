@@ -944,6 +944,7 @@ public partial class MainPage : ContentPage
                 {
                     await Task.Delay(3000, token);
 
+                    if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) continue;
                     _usbService.CloseDetachedPorts();
                     bool connected = _usbService.IsAnyPortOpen
                         || await _usbService.TryConnectAsync(0, 9600);
@@ -1181,6 +1182,7 @@ public partial class MainPage : ContentPage
     {
         if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) return;
         _isLaunching = true;
+        StopUsbWatcher();
         var cts = new CancellationTokenSource();
         _launchCts = cts;
         bool navigated = false;
