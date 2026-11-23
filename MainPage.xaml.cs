@@ -779,11 +779,6 @@ public partial class MainPage : ContentPage
     {
         LoadingIndicator.IsVisible = false;
 
-        if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView wv)
-        {
-            wv.AddJavascriptInterface(new NativeBridge(this), "NativeBridge");
-        }
-
         if (!_isLauncherLoaded)
         {
             _isLauncherLoaded = true;
