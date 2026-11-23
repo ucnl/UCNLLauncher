@@ -21,6 +21,8 @@ public partial class MainPage : ContentPage
     private Android.Locations.LocationManager? _locationManager;
     private HarmonyLocationListener? _locationListener;
     private CancellationTokenSource? _mauiGpsCts;
+    private bool _gpsStarting;
+    private int _gpsGeneration;
 
     private readonly PwaCacheService _cacheService;
 
@@ -475,32 +477,46 @@ public partial class MainPage : ContentPage
 
     private async void StartNativeGPS()
     {
-        var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-        if (status != PermissionStatus.Granted)
+        if (_gpsStarting || _locationListener != null || _mauiGpsCts != null) return;
+        _gpsStarting = true;
+        var generation = _gpsGeneration;
+        try
         {
-            status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+            var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
             if (status != PermissionStatus.Granted)
             {
-                return;
+                status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+                if (status != PermissionStatus.Granted)
+                {
+                    return;
+                }
             }
-        }
+            if (generation != _gpsGeneration) return;
 
-        StopNativeGPS();
-
-        try
-        {
-            if (await StartAndroidGPS())
+            try
             {
-                return;
+                if (await StartAndroidGPS())
+                {
+                    return;
+                }
             }
-        }
-        catch { }
+            catch { }
+            if (generation != _gpsGeneration) return;
 
-        try
-        {
-            StartMauiGPS();
+            try
+            {
+                StartMauiGPS();
+            }
+            catch { }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[StartNativeGPS] {ex.Message}");
+        }
+        finally
+        {
+            if (generation == _gpsGeneration) _gpsStarting = false;
+        }
     }
 
 #endif
@@ -650,6 +666,8 @@ public partial class MainPage : ContentPage
 
     private void StopNativeGPS()
     {
+        _gpsGeneration++;
+        _gpsStarting = false;
         try
         {
             if (_locationManager != null && _locationListener != null)
