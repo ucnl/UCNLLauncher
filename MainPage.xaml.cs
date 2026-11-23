@@ -311,6 +311,11 @@ public partial class MainPage : ContentPage
         {
             System.Diagnostics.Debug.WriteLine("[FileChooser] OnShowFileChooser called");
 
+            if (_filePathCallback != null && !ReferenceEquals(_filePathCallback, filePathCallback))
+            {
+                try { _filePathCallback.OnReceiveValue(null); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[FileChooser] cancel previous failed: " + ex.Message); }
+            }
             _filePathCallback = filePathCallback;
 
             var intent = fileChooserParams?.CreateIntent();
@@ -324,8 +329,14 @@ public partial class MainPage : ContentPage
             try
             {
                 var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+                if (activity == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[FileChooser] no current activity");
+                    _filePathCallback = null;
+                    return false;
+                }
                 Active = this;
-                activity?.StartActivityForResult(intent, FileChooserRequestCode);
+                activity.StartActivityForResult(intent, FileChooserRequestCode);
                 return true;
             }
             catch (Exception ex)
