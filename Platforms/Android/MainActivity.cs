@@ -30,10 +30,8 @@ namespace UCNLLauncher
         {
             base.OnActivityResult(requestCode, resultCode, data);
 
-            if (Microsoft.Maui.Controls.Application.Current?.MainPage is UCNLLauncher.MainPage page)
-            {
-                page.HandleFileChooserResult(requestCode, resultCode, data);
-            }
+            if (requestCode == MainPage.GeolocationWebChromeClient.FileChooserRequestCode)
+                MainPage.GeolocationWebChromeClient.Active?.HandleActivityResult(requestCode, resultCode, data);
         }
     }
 }

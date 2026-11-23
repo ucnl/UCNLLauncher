@@ -21,7 +21,6 @@ public partial class MainPage : ContentPage
     private CancellationTokenSource? _mauiGpsCts;
 
     private readonly PwaCacheService _cacheService;
-    private GeolocationWebChromeClient? _webChromeClient;
 
     private bool _isSyncingAll = false;
     private readonly HashSet<string> _syncingApps = new(StringComparer.Ordinal);
@@ -278,8 +277,7 @@ public partial class MainPage : ContentPage
         if (!OperatingSystem.IsAndroidVersionAtLeast(24))
             androidWebView.Settings.SetGeolocationDatabasePath(
                 Android.App.Application.Context.FilesDir?.Path ?? "/data/data/com.unavlab.launcher/files");
-        _webChromeClient = new GeolocationWebChromeClient(handler);
-        androidWebView.SetWebChromeClient(_webChromeClient);
+        androidWebView.SetWebChromeClient(new GeolocationWebChromeClient(handler));
         androidWebView.SetWebViewClient(new LauncherWebViewClient(handler));
         androidWebView.AddJavascriptInterface(new NativeBridge(this), "NativeBridge");
         UpdateWebViewBaseColor();
@@ -293,15 +291,11 @@ public partial class MainPage : ContentPage
         DeviceDisplay.KeepScreenOn = true;
     }
 
-    internal void HandleFileChooserResult(int requestCode, Android.App.Result resultCode, Android.Content.Intent? data)
-    {
-        _webChromeClient?.HandleActivityResult(requestCode, resultCode, data);
-    }
-
     public class GeolocationWebChromeClient : Microsoft.Maui.Platform.MauiWebChromeClient
     {
         private Android.Webkit.IValueCallback? _filePathCallback;
         internal const int FileChooserRequestCode = 4321;
+        internal static GeolocationWebChromeClient? Active { get; private set; }
 
         public GeolocationWebChromeClient(Microsoft.Maui.Handlers.IWebViewHandler handler) : base(handler) { }
 
@@ -330,6 +324,7 @@ public partial class MainPage : ContentPage
             try
             {
                 var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+                Active = this;
                 activity?.StartActivityForResult(intent, FileChooserRequestCode);
                 return true;
             }
@@ -337,6 +332,7 @@ public partial class MainPage : ContentPage
             {
                 System.Diagnostics.Debug.WriteLine("[FileChooser] StartActivityForResult failed: " + ex.Message);
                 _filePathCallback = null;
+                if (ReferenceEquals(Active, this)) Active = null;
                 return false;
             }
         }
@@ -370,6 +366,7 @@ public partial class MainPage : ContentPage
             finally
             {
                 _filePathCallback = null;
+                if (ReferenceEquals(Active, this)) Active = null;
             }
         }
     }
