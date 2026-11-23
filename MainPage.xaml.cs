@@ -947,16 +947,20 @@ public partial class MainPage : ContentPage
 
     private async Task InjectLauncherScript()
     {
+        bool hasDevice = false;
         try
         {
-            bool hasDevice = _usbService.IsAnyPortOpen || await _usbService.TryConnectAsync(0, 9600);
+            hasDevice = _usbService.IsAnyPortOpen || await _usbService.TryConnectAsync(0, 9600);
             if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) return;
             await MainWebView.EvaluateJavaScriptAsync($"updateUsbStatus({hasDevice.ToString().ToLower()})");
-            StartUsbWatcher(hasDevice);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[InjectLauncherScript] {ex.Message}");
+        }
+        finally
+        {
+            if (!_isLaunching && string.IsNullOrEmpty(_currentAppName)) StartUsbWatcher(hasDevice);
         }
     }
 
