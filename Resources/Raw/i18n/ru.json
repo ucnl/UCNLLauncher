@@ -48,8 +48,6 @@
   "dialog.error.title": "Ошибка",
   "dialog.app.notfound": "Приложение не найдено",
   "dialog.app.loadfailed": "Не удалось загрузить приложение",
-  "dialog.wait.title": "Подождите",
-  "dialog.app.syncing": "Приложение ещё загружается, подождите окончания загрузки.",
   "dialog.usb.title": "USB",
   "dialog.usb.generic": "Устройство не найдено",
   "dialog.network.title": "Нет сети",

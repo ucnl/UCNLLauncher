@@ -27,7 +27,7 @@ public partial class MainPage : ContentPage
     private readonly PwaCacheService _cacheService;
 
     private bool _isSyncingAll = false;
-    private readonly HashSet<string> _syncingApps = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Task<bool>> _syncTasks = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, string> _appUrls = new()
     {
@@ -1115,30 +1115,15 @@ public partial class MainPage : ContentPage
             int done = 0;
             foreach (var appName in missingApps)
             {
-                await SetAppDisabledAsync(appName, true, T("launcher.sync.badge"));
-                _syncingApps.Add(appName);
-
-                try
+                if (!_syncTasks.ContainsKey(appName) && _cacheService.HasLocalCopy(appName))
                 {
-                    await UpdateSyncStatus(T("launcher.sync.app", appName, done + 1, missingApps.Count), true);
-
-                    bool synced = await _cacheService.SyncAppAsync(
-                        appName,
-                        _appUrls[appName],
-                        msg => System.Diagnostics.Debug.WriteLine(msg));
-
-                    System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — {(synced ? "OK" : "не удалось")}");
+                    done++;
+                    continue;
                 }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — ошибка: {ex.Message}");
-                }
-                finally
-                {
-                    _syncingApps.Remove(appName);
 
-                    await SetAppDisabledAsync(appName, false, "");
-                }
+                await UpdateSyncStatus(T("launcher.sync.app", appName, done + 1, missingApps.Count), true);
+                bool synced = await GetOrStartSync(appName);
+                System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — {(synced ? "OK" : "не удалось")}");
 
                 done++;
             }
@@ -1153,6 +1138,39 @@ public partial class MainPage : ContentPage
         finally
         {
             _isSyncingAll = false;
+        }
+    }
+
+    private Task<bool> GetOrStartSync(string appName)
+    {
+        if (_syncTasks.TryGetValue(appName, out var running))
+            return running;
+
+        var task = RunTrackedSyncAsync(appName);
+        if (!task.IsCompleted)
+            _syncTasks[appName] = task;
+        return task;
+    }
+
+    private async Task<bool> RunTrackedSyncAsync(string appName)
+    {
+        try
+        {
+            await SetAppDisabledAsync(appName, true, T("launcher.sync.badge"));
+            return await _cacheService.SyncAppAsync(
+                appName,
+                _appUrls[appName],
+                msg => System.Diagnostics.Debug.WriteLine(msg));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Sync] {appName}: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            await SetAppDisabledAsync(appName, false, "");
+            _syncTasks.Remove(appName);
         }
     }
 
@@ -1221,9 +1239,6 @@ public partial class MainPage : ContentPage
         if (!_appUrls.ContainsKey(appName))
             return await FailLaunchAsync(token, T("dialog.error.title"), T("dialog.app.notfound"));
 
-        if (_syncingApps.Contains(appName))
-            return await FailLaunchAsync(token, T("dialog.wait.title"), T("dialog.app.syncing"));
-
         _isAppLoaded = false;
         LoadingIndicator.IsVisible = true;
 
@@ -1283,8 +1298,6 @@ public partial class MainPage : ContentPage
         }
         if (token.IsCancellationRequested) return false;
 
-        string remoteUrl = _appUrls[appName];
-
         bool hasNetwork = false;
         try
         {
@@ -1292,37 +1305,19 @@ public partial class MainPage : ContentPage
         }
         catch { }
 
-        bool shouldSync = !_cacheService.HasLocalCopy(appName);
-
-        if (hasNetwork && shouldSync)
+        if (_syncTasks.ContainsKey(appName) || (hasNetwork && !_cacheService.HasLocalCopy(appName)))
         {
-            _syncingApps.Add(appName);
-            await SetAppDisabledAsync(appName, true, T("launcher.sync.badge"));
-
             try
             {
-                bool synced = await _cacheService.SyncAppAsync(
-                    appName,
-                    remoteUrl,
-                    msg => System.Diagnostics.Debug.WriteLine(msg));
-
+                bool synced = await GetOrStartSync(appName).WaitAsync(token);
                 if (token.IsCancellationRequested) return false;
 
                 if (!synced && !_cacheService.HasLocalCopy(appName))
                     return await FailLaunchAsync(token, T("dialog.error.title"), T("dialog.app.loadfailed"));
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                System.Diagnostics.Debug.WriteLine($"[LaunchApp] Sync failed: {ex.Message}");
-                if (token.IsCancellationRequested) return false;
-
-                if (!_cacheService.HasLocalCopy(appName))
-                    return await FailLaunchAsync(token, T("dialog.error.title"), T("dialog.app.loadfailed"));
-            }
-            finally
-            {
-                _syncingApps.Remove(appName);
-                await SetAppDisabledAsync(appName, false, "");
+                return false;
             }
         }
         else if (!hasNetwork && !_cacheService.HasLocalCopy(appName))

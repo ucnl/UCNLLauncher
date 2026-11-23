@@ -48,8 +48,6 @@
   "dialog.error.title": "Error",
   "dialog.app.notfound": "App not found",
   "dialog.app.loadfailed": "Failed to load the app",
-  "dialog.wait.title": "Please wait",
-  "dialog.app.syncing": "The app is still downloading. Please wait until the download finishes.",
   "dialog.usb.title": "USB",
   "dialog.usb.generic": "Device not found",
   "dialog.network.title": "No network",
