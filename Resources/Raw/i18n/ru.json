@@ -38,6 +38,7 @@
   "native.log.pick": "Выберите лог",
   "native.log.notselected": "Файл не выбран",
   "native.log.transferfailed": "Ошибка передачи: {0}",
+  "native.log.toolarge": "Файл слишком большой (больше {0} МБ)",
 
   "dialog.ok": "OK",
   "dialog.gps.title": "GPS",

@@ -16,6 +16,7 @@ public partial class MainPage : ContentPage
     private CancellationTokenSource? _usbWatcherCts;
     private string _currentAppName = "";
     private bool _logPickActive;
+    private int _pageGeneration;
 
     private Android.Locations.LocationManager? _locationManager;
     private HarmonyLocationListener? _locationListener;
@@ -677,6 +678,7 @@ public partial class MainPage : ContentPage
         _isAppLoaded = false;
         _launcherSettingsOpen = false;
         _currentAppName = "";
+        _pageGeneration++;
         Toolbar.IsVisible = false;
         UpdateWebViewBaseColor();
         MainWebView.Source = "launcher.html";
@@ -778,6 +780,7 @@ public partial class MainPage : ContentPage
 
     private async void OnNavigated(object? sender, WebNavigatedEventArgs e)
     {
+        _pageGeneration++;
         LoadingIndicator.IsVisible = false;
 
         if (!_isLauncherLoaded)
@@ -1386,6 +1389,7 @@ public partial class MainPage : ContentPage
 
     private async Task PickLogFileAsync()
     {
+        var generation = _pageGeneration;
         try
         {
             var result = await FilePicker.Default.PickAsync(new PickOptions
@@ -1403,44 +1407,33 @@ public partial class MainPage : ContentPage
                 return;
             }
 
-            using var stream = await result.OpenReadAsync();
-            using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8);
-            var text = await reader.ReadToEndAsync();
+            if (generation != _pageGeneration || !IsLocalPageActive())
+            {
+                System.Diagnostics.Debug.WriteLine("[PickLogFile] page changed, transfer cancelled");
+                return;
+            }
 
-            const int chunkSize = 400_000;
-            int totalChunks = (text.Length + chunkSize - 1) / chunkSize;
+            using var stream = await result.OpenReadAsync();
+            long length = -1;
+            try
+            {
+                if (stream.CanSeek) length = stream.Length;
+            }
+            catch { }
+            if (length > MaxLogFileBytes)
+            {
+                SendLogErrorToWebView(T("native.log.toolarge", MaxLogFileBytes / (1024 * 1024)));
+                return;
+            }
 
             try
             {
-                await MainWebView.EvaluateJavaScriptAsync("window._nativeLogParts = []; void 0;");
-
-                for (int i = 0; i < totalChunks; i++)
-                {
-                    int start = i * chunkSize;
-                    int len = Math.Min(chunkSize, text.Length - start);
-                    var chunk = text.Substring(start, len);
-
-                    var escaped = chunk
-                        .Replace("\\", "\\\\")
-                        .Replace("'", "\\'")
-                        .Replace("\r", "\\r")
-                        .Replace("\n", "\\n")
-                        .Replace("\u2028", "\\u2028")
-                        .Replace("\u2029", "\\u2029");
-
-                    await MainWebView.EvaluateJavaScriptAsync(
-                        $"window._nativeLogParts.push('{escaped}'); void 0;");
-                    await Task.Delay(10);
-                }
-
-                await Task.Delay(1000);
-
-                await MainWebView.EvaluateJavaScriptAsync(
-                    "window._nativeLogContent = (window._nativeLogParts || []).join(''); window._nativeLogParts = null; " +
-                    "if (window._nativeLogContent_ready) window._nativeLogContent_ready(); void 0;");
+                await TransferLogAsync(stream, generation);
             }
             catch (Exception ex)
             {
+                if (generation == _pageGeneration)
+                    await EvaluateLauncherScriptAsync("window._nativeLogParts = null; void 0;");
                 SendLogErrorToWebView(T("native.log.transferfailed", ex.Message));
             }
         }
@@ -1454,10 +1447,73 @@ public partial class MainPage : ContentPage
         }
     }
 
+    private const long MaxLogFileBytes = 50L * 1024 * 1024;
+    private const int LogChunkChars = 400_000;
+
+    private async Task TransferLogAsync(Stream stream, int generation)
+    {
+        using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+        var buffer = new char[LogChunkChars];
+        int carry = 0;
+        long totalChars = 0;
+
+        await MainWebView.EvaluateJavaScriptAsync("window._nativeLogParts = []; void 0;");
+
+        while (true)
+        {
+            int read = await reader.ReadBlockAsync(buffer, carry, buffer.Length - carry);
+            int available = carry + read;
+            if (available == 0) break;
+
+            int send = available;
+            if (read > 0 && char.IsHighSurrogate(buffer[send - 1])) send--;
+
+            totalChars += send;
+            if (totalChars > MaxLogFileBytes)
+            {
+                await MainWebView.EvaluateJavaScriptAsync("window._nativeLogParts = null; void 0;");
+                SendLogErrorToWebView(T("native.log.toolarge", MaxLogFileBytes / (1024 * 1024)));
+                return;
+            }
+
+            if (generation != _pageGeneration || !IsLocalPageActive())
+            {
+                System.Diagnostics.Debug.WriteLine("[PickLogFile] page changed, transfer cancelled");
+                return;
+            }
+
+            if (send > 0)
+            {
+                var escaped = new string(buffer, 0, send)
+                    .Replace("\\", "\\\\")
+                    .Replace("'", "\\'")
+                    .Replace("\r", "\\r")
+                    .Replace("\n", "\\n")
+                    .Replace("\u2028", "\\u2028")
+                    .Replace("\u2029", "\\u2029");
+                await MainWebView.EvaluateJavaScriptAsync($"window._nativeLogParts.push('{escaped}'); void 0;");
+            }
+
+            carry = available - send;
+            if (carry > 0) buffer[0] = buffer[send];
+            if (read == 0) break;
+        }
+
+        if (generation != _pageGeneration || !IsLocalPageActive()) return;
+
+        var ack = await MainWebView.EvaluateJavaScriptAsync(
+            "(function(){window._nativeLogContent=(window._nativeLogParts||[]).join('');window._nativeLogParts=null;" +
+            "if(typeof window._nativeLogContent_ready==='function'){window._nativeLogContent_ready();return 'ok';}" +
+            "return 'nohandler';})()");
+        if (ack?.Trim('"') != "ok")
+            System.Diagnostics.Debug.WriteLine($"[PickLogFile] page has no _nativeLogContent_ready handler ({ack})");
+    }
+
     private void SendLogErrorToWebView(string message)
     {
         MainThread.BeginInvokeOnMainThread(async () =>
         {
+            if (string.IsNullOrEmpty(_currentAppName) || !IsLocalPageActive()) return;
             try
             {
                 await MainWebView.EvaluateJavaScriptAsync(

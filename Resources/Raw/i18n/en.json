@@ -38,6 +38,7 @@
   "native.log.pick": "Select a log file",
   "native.log.notselected": "No file selected",
   "native.log.transferfailed": "Transfer error: {0}",
+  "native.log.toolarge": "The file is too large (over {0} MB)",
 
   "dialog.ok": "OK",
   "dialog.gps.title": "GPS",
