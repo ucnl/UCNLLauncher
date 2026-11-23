@@ -26,7 +26,9 @@ public partial class MainPage : ContentPage
 
     private readonly PwaCacheService _cacheService;
 
-    private bool _isSyncingAll = false;
+    private Task? _syncAllTask;
+    private CancellationTokenSource _syncCts = new();
+    private bool _isClearingCache;
     private readonly Dictionary<string, Task<bool>> _syncTasks = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, string> _appUrls = new()
@@ -832,7 +834,7 @@ public partial class MainPage : ContentPage
             await Task.Delay(500);
             await InjectLauncherScript();
 
-            _ = SyncAllMissingAppsAsync();
+            StartSyncAll();
 
             return;
         }
@@ -897,20 +899,47 @@ public partial class MainPage : ContentPage
 
     private async void ClearAllCache()
     {
+        if (_isClearingCache) return;
+        _isClearingCache = true;
         try
         {
-            _cacheService.DeleteAll();
-        }
-        catch { }
+            var running = new List<Task>(_syncTasks.Values);
+            if (_syncAllTask != null) running.Add(_syncAllTask);
+            _syncCts.Cancel();
+            try
+            {
+                await Task.WhenAll(running);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ClearAllCache] {ex.Message}");
+            }
+            _syncCts.Dispose();
+            _syncCts = new CancellationTokenSource();
+
+            try
+            {
+                _cacheService.DeleteAll();
+            }
+            catch { }
 
 #if ANDROID
-        if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView androidWebView)
-        {
-            androidWebView.ClearCache(true);
-        }
+            if (MainWebView.Handler?.PlatformView is Android.Webkit.WebView androidWebView)
+            {
+                androidWebView.ClearCache(true);
+            }
 #endif
 
-        await DisplayAlert(T("dialog.cache.title"), T("dialog.cache.cleared"), T("dialog.ok"));
+            await UpdateSyncStatus("", false);
+            _isClearingCache = false;
+            StartSyncAll();
+
+            await DisplayAlert(T("dialog.cache.title"), T("dialog.cache.cleared"), T("dialog.ok"));
+        }
+        finally
+        {
+            _isClearingCache = false;
+        }
     }
 
     private async Task InjectLauncherScript()
@@ -1075,11 +1104,14 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private async Task SyncAllMissingAppsAsync()
+    private void StartSyncAll()
     {
-        if (_isSyncingAll) return;
-        _isSyncingAll = true;
+        if (_isClearingCache || _syncAllTask is { IsCompleted: false }) return;
+        _syncAllTask = SyncAllMissingAppsAsync(_syncCts.Token);
+    }
 
+    private async Task SyncAllMissingAppsAsync(CancellationToken token)
+    {
         try
         {
             bool hasNetwork = false;
@@ -1115,6 +1147,7 @@ public partial class MainPage : ContentPage
             int done = 0;
             foreach (var appName in missingApps)
             {
+                if (token.IsCancellationRequested) return;
                 if (!_syncTasks.ContainsKey(appName) && _cacheService.HasLocalCopy(appName))
                 {
                     done++;
@@ -1127,6 +1160,7 @@ public partial class MainPage : ContentPage
 
                 done++;
             }
+            if (token.IsCancellationRequested) return;
 
             await UpdateSyncStatus(T("launcher.sync.done", done, missingApps.Count), false);
             System.Diagnostics.Debug.WriteLine($"[SyncAll] Завершено: {done}/{missingApps.Count}");
@@ -1134,10 +1168,6 @@ public partial class MainPage : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[SyncAll] Общая ошибка: {ex.Message}");
-        }
-        finally
-        {
-            _isSyncingAll = false;
         }
     }
 
@@ -1154,13 +1184,15 @@ public partial class MainPage : ContentPage
 
     private async Task<bool> RunTrackedSyncAsync(string appName)
     {
+        var token = _syncCts.Token;
         try
         {
             await SetAppDisabledAsync(appName, true, T("launcher.sync.badge"));
             return await _cacheService.SyncAppAsync(
                 appName,
                 _appUrls[appName],
-                msg => System.Diagnostics.Debug.WriteLine(msg));
+                msg => System.Diagnostics.Debug.WriteLine(msg),
+                token);
         }
         catch (Exception ex)
         {
@@ -1198,7 +1230,7 @@ public partial class MainPage : ContentPage
 
     private async void LaunchApp(string appName)
     {
-        if (_isLaunching || !string.IsNullOrEmpty(_currentAppName)) return;
+        if (_isLaunching || _isClearingCache || !string.IsNullOrEmpty(_currentAppName)) return;
         _isLaunching = true;
         StopUsbWatcher();
         var cts = new CancellationTokenSource();
