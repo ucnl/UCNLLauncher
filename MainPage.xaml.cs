@@ -475,7 +475,7 @@ public partial class MainPage : ContentPage
         });
     }
 
-    private async void StartNativeGPS()
+    private async void StartNativeGPS(bool interactive)
     {
         if (_gpsStarting || _locationListener != null || _mauiGpsCts != null) return;
         _gpsStarting = true;
@@ -495,13 +495,14 @@ public partial class MainPage : ContentPage
 
             try
             {
-                if (await StartAndroidGPS())
+                if (await StartAndroidGPS(interactive))
                 {
                     return;
                 }
             }
             catch { }
             if (generation != _gpsGeneration) return;
+            if (!interactive && !IsAnyLocationProviderEnabled()) return;
 
             try
             {
@@ -521,7 +522,24 @@ public partial class MainPage : ContentPage
 
 #endif
 
-    private async Task<bool> StartAndroidGPS()
+    private static bool IsAnyLocationProviderEnabled()
+    {
+        try
+        {
+            var manager = (Android.Locations.LocationManager?)Android.App.Application.Context
+                .GetSystemService(Android.Content.Context.LocationService);
+            if (manager == null) return false;
+            return manager.IsProviderEnabled(Android.Locations.LocationManager.GpsProvider)
+                || manager.IsProviderEnabled(Android.Locations.LocationManager.NetworkProvider)
+                || manager.IsProviderEnabled(Android.Locations.LocationManager.PassiveProvider);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> StartAndroidGPS(bool interactive)
     {
         try
         {
@@ -539,6 +557,11 @@ public partial class MainPage : ContentPage
 
             if (!gpsEnabled && !networkEnabled && !passiveEnabled)
             {
+                if (!interactive)
+                {
+                    System.Diagnostics.Debug.WriteLine("[GPS] location providers are off, auto start skipped");
+                    return false;
+                }
                 await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
                     await DisplayAlert(T("dialog.gps.title"), T("dialog.gps.message"), T("dialog.ok"));
@@ -755,7 +778,7 @@ public partial class MainPage : ContentPage
             else if (appName == "stop_gps")
                 StopNativeGPS();
             else if (appName == "start_gps")
-                StartNativeGPS();
+                StartNativeGPS(interactive: true);
             else if (appName == "start_compass")
                 StartCompass();
             else if (appName == "stop_compass")
@@ -823,7 +846,7 @@ public partial class MainPage : ContentPage
 
             if (_currentAppName == "uGNSSMonitor")
             {
-                StartNativeGPS();
+                StartNativeGPS(interactive: false);
             }
         }
     }
