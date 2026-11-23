@@ -21,7 +21,7 @@
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.2</ApplicationDisplayVersion>
-		<ApplicationVersion>1</ApplicationVersion>
+		<ApplicationVersion>2</ApplicationVersion>
 		<Version>1.2</Version>
 
 		<!-- Минимальная версия Android 5.0 (API 21) для поддержки USB Host -->
