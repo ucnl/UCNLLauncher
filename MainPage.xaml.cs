@@ -22,6 +22,7 @@ public partial class MainPage : ContentPage
     private HarmonyLocationListener? _locationListener;
     private CancellationTokenSource? _mauiGpsCts;
     private bool _gpsStarting;
+    private bool _pendingInteractiveGps;
     private int _gpsGeneration;
 
     private readonly PwaCacheService _cacheService;
@@ -482,7 +483,12 @@ public partial class MainPage : ContentPage
 
     private async void StartNativeGPS(bool interactive)
     {
-        if (_gpsStarting || _locationListener != null || _mauiGpsCts != null) return;
+        if (_gpsStarting)
+        {
+            if (interactive) _pendingInteractiveGps = true;
+            return;
+        }
+        if (_locationListener != null || _mauiGpsCts != null) return;
         _gpsStarting = true;
         var generation = _gpsGeneration;
         try
@@ -520,7 +526,15 @@ public partial class MainPage : ContentPage
         }
         finally
         {
-            if (generation == _gpsGeneration) _gpsStarting = false;
+            if (generation == _gpsGeneration)
+            {
+                _gpsStarting = false;
+                if (_pendingInteractiveGps)
+                {
+                    _pendingInteractiveGps = false;
+                    if (_locationListener == null && _mauiGpsCts == null) StartNativeGPS(true);
+                }
+            }
         }
     }
 
@@ -678,6 +692,7 @@ public partial class MainPage : ContentPage
     {
         _gpsGeneration++;
         _gpsStarting = false;
+        _pendingInteractiveGps = false;
         try
         {
             if (_locationManager != null && _locationListener != null)
