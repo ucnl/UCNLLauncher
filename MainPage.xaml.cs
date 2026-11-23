@@ -30,7 +30,8 @@ public partial class MainPage : ContentPage
     private Task? _syncAllTask;
     private CancellationTokenSource _syncCts = new();
     private bool _isClearingCache;
-    private string _syncStatusText = "";
+    private string? _syncStatusKey;
+    private object[] _syncStatusArgs = Array.Empty<object>();
     private bool _syncStatusVisible;
     private int _syncStatusVersion;
     private readonly Dictionary<string, Task<bool>> _syncTasks = new(StringComparer.Ordinal);
@@ -98,6 +99,7 @@ public partial class MainPage : ContentPage
         {
             ApplyNativeTexts();
             PushLauncherConfig();
+            _ = RestoreSyncStateAsync();
         });
     }
 
@@ -931,7 +933,7 @@ public partial class MainPage : ContentPage
             }
 #endif
 
-            await UpdateSyncStatus("", false);
+            await UpdateSyncStatus(null, false);
             _isClearingCache = false;
             StartSyncAll();
 
@@ -1143,7 +1145,7 @@ public partial class MainPage : ContentPage
 
             System.Diagnostics.Debug.WriteLine($"[SyncAll] Загружаем {missingApps.Count} приложений последовательно");
 
-            await UpdateSyncStatus(T("launcher.sync.progress", 0, missingApps.Count), true);
+            await UpdateSyncStatus("launcher.sync.progress", true, 0, missingApps.Count);
 
             int done = 0;
             int ok = 0;
@@ -1157,7 +1159,7 @@ public partial class MainPage : ContentPage
                     continue;
                 }
 
-                await UpdateSyncStatus(T("launcher.sync.app", appName, done + 1, missingApps.Count), true);
+                await UpdateSyncStatus("launcher.sync.app", true, appName, done + 1, missingApps.Count);
                 bool synced = await GetOrStartSync(appName) || _cacheService.HasLocalCopy(appName);
                 System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — {(synced ? "OK" : "не удалось")}");
 
@@ -1170,11 +1172,11 @@ public partial class MainPage : ContentPage
             System.Diagnostics.Debug.WriteLine($"[SyncAll] Завершено: {ok}/{missingApps.Count}, ошибок {failed}");
             if (failed > 0)
             {
-                await UpdateSyncStatus(T("launcher.sync.failed", ok, missingApps.Count, failed), true);
+                await UpdateSyncStatus("launcher.sync.failed", true, ok, missingApps.Count, failed);
                 return;
             }
 
-            int version = await UpdateSyncStatus(T("launcher.sync.done", ok, missingApps.Count), true);
+            int version = await UpdateSyncStatus("launcher.sync.done", true, ok, missingApps.Count);
             _ = HideSyncStatusLaterAsync(version);
         }
         catch (Exception ex)
@@ -1218,9 +1220,10 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private async Task<int> UpdateSyncStatus(string text, bool visible)
+    private async Task<int> UpdateSyncStatus(string? key, bool visible, params object[] args)
     {
-        _syncStatusText = visible ? text : "";
+        _syncStatusKey = visible ? key : null;
+        _syncStatusArgs = visible ? args : Array.Empty<object>();
         _syncStatusVisible = visible;
         int version = ++_syncStatusVersion;
         await ApplySyncStatusAsync();
@@ -1243,7 +1246,7 @@ public partial class MainPage : ContentPage
     {
         await Task.Delay(3000);
         if (version == _syncStatusVersion)
-            await UpdateSyncStatus("", false);
+            await UpdateSyncStatus(null, false);
     }
 
     private async Task ApplySyncStatusAsync()
@@ -1251,9 +1254,10 @@ public partial class MainPage : ContentPage
         if (!IsLauncherPageActive()) return;
         try
         {
+            var statusText = _syncStatusKey == null ? "" : T(_syncStatusKey, _syncStatusArgs);
             await MainWebView.EvaluateJavaScriptAsync(
                 "(function(){var el=document.getElementById('syncStatus');if(!el)return;" +
-                $"el.textContent={JsString(_syncStatusText)};el.style.display={JsString(_syncStatusVisible ? "block" : "none")};}})()");
+                $"el.textContent={JsString(statusText)};el.style.display={JsString(_syncStatusVisible ? "block" : "none")};}})()");
         }
         catch { }
     }
