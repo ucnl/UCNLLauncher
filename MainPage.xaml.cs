@@ -24,7 +24,6 @@ public partial class MainPage : ContentPage
 
     private bool _isSyncingAll = false;
     private readonly HashSet<string> _syncingApps = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _disabledApps = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, string> _appUrls = new()
     {
@@ -858,9 +857,6 @@ public partial class MainPage : ContentPage
 
     private async void ClearAllCache()
     {
-        foreach (var key in _appUrls.Keys)
-            Preferences.Remove($"{key}_lastSync");
-
         try
         {
             _cacheService.DeleteAll();
@@ -1079,7 +1075,6 @@ public partial class MainPage : ContentPage
             foreach (var appName in missingApps)
             {
                 await SetAppDisabledAsync(appName, true, T("launcher.sync.badge"));
-                _disabledApps.Add(appName);
                 _syncingApps.Add(appName);
 
                 try
@@ -1091,15 +1086,7 @@ public partial class MainPage : ContentPage
                         _appUrls[appName],
                         msg => System.Diagnostics.Debug.WriteLine(msg));
 
-                    if (synced)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — OK");
-                        Preferences.Set($"{appName}_lastSync", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — не удалось");
-                    }
+                    System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — {(synced ? "OK" : "не удалось")}");
                 }
                 catch (Exception ex)
                 {
@@ -1108,7 +1095,6 @@ public partial class MainPage : ContentPage
                 finally
                 {
                     _syncingApps.Remove(appName);
-                    _disabledApps.Remove(appName);
 
                     await SetAppDisabledAsync(appName, false, "");
                 }
@@ -1269,7 +1255,6 @@ public partial class MainPage : ContentPage
         if (hasNetwork && shouldSync)
         {
             _syncingApps.Add(appName);
-            _disabledApps.Add(appName);
             await SetAppDisabledAsync(appName, true, T("launcher.sync.badge"));
 
             try
@@ -1278,9 +1263,6 @@ public partial class MainPage : ContentPage
                     appName,
                     remoteUrl,
                     msg => System.Diagnostics.Debug.WriteLine(msg));
-
-                if (synced)
-                    Preferences.Set($"{appName}_lastSync", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
                 if (token.IsCancellationRequested) return false;
 
@@ -1298,7 +1280,6 @@ public partial class MainPage : ContentPage
             finally
             {
                 _syncingApps.Remove(appName);
-                _disabledApps.Remove(appName);
                 await SetAppDisabledAsync(appName, false, "");
             }
         }
@@ -1390,19 +1371,6 @@ public partial class MainPage : ContentPage
     }
 
 #if ANDROID
-
-    internal void LogToPwa(string msg)
-    {
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            try
-            {
-                var escaped = msg.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n");
-                await MainWebView.EvaluateJavaScriptAsync($"App.setStatus('{escaped}')");
-            }
-            catch { }
-        });
-    }
 
     internal async void PickLogFileViaFilePicker()
     {
