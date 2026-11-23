@@ -159,7 +159,7 @@ def scan_cs(text):
                 buffer.append(ch)
                 j += 1
             literals.append((start_line, "".join(buffer)))
-            i = j + 1
+            i = j if j < n and text[j] == "\n" else j + 1
             continue
         i += 1
     return literals
