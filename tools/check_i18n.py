@@ -14,6 +14,7 @@ PLACEHOLDER = re.compile(r"\{(\d+)\}")
 HTML_KEY_ATTR = re.compile(r"""data-i18n(?:-aria-label|-title)?\s*=\s*["']([^"']+)["']""")
 JS_T_CALL = re.compile(r"""\bt\(\s*'([^'\\]+)'\s*\)""")
 CS_T_CALL = re.compile(r"""\bT\(\s*"([^"\\]+)\"""")
+CS_KEY_LITERAL = re.compile(r"""\"([a-z]+(?:\.[a-z0-9]+)+)\"""")
 HTML_LITERAL = re.compile(r"""'([a-z]+(?:\.[a-z0-9]+)+)'""")
 DEBUG_MARKERS = ("Debug.WriteLine", "onProgress")
 
@@ -200,7 +201,7 @@ def check_cyrillic_markup(path, text):
             fail(str(path.relative_to(ROOT)) + ":" + str(number) + ": кириллица в разметке или скрипте: " + row.strip())
 
 
-def collect_used_keys(prefixes):
+def collect_used_keys(prefixes, reference_keys):
     used = {}
 
     def add(key, where):
@@ -223,6 +224,10 @@ def collect_used_keys(prefixes):
         text = read_text(path)
         for match in CS_T_CALL.finditer(text):
             add(match.group(1), str(path.relative_to(ROOT)))
+        for match in CS_KEY_LITERAL.finditer(text):
+            key = match.group(1)
+            if key.split(".")[0] in prefixes and key in reference_keys:
+                add(key, str(path.relative_to(ROOT)))
     return used
 
 
@@ -231,7 +236,7 @@ def check_usage(dictionaries):
         return
     reference = dictionaries[REFERENCE]
     prefixes = {key.split(".")[0] for key in reference if "." in key}
-    used = collect_used_keys(prefixes)
+    used = collect_used_keys(prefixes, set(reference))
     for key, places in sorted(used.items()):
         if key not in reference:
             fail("ключ " + key + " используется в " + ", ".join(sorted(set(places))) + ", но отсутствует в " + REFERENCE + ".json")
