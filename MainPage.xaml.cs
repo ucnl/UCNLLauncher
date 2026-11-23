@@ -15,6 +15,7 @@ public partial class MainPage : ContentPage
     private CancellationTokenSource? _readLoopCts;
     private CancellationTokenSource? _usbWatcherCts;
     private string _currentAppName = "";
+    private bool _logPickActive;
 
     private Android.Locations.LocationManager? _locationManager;
     private HarmonyLocationListener? _locationListener;
@@ -1367,7 +1368,23 @@ public partial class MainPage : ContentPage
 
 #if ANDROID
 
-    internal async void PickLogFileViaFilePicker()
+    internal void RequestLogFilePick()
+    {
+        if (_logPickActive)
+        {
+            System.Diagnostics.Debug.WriteLine("[PickLogFile] already in progress");
+            return;
+        }
+        if (string.IsNullOrEmpty(_currentAppName) || !IsLocalPageActive())
+        {
+            System.Diagnostics.Debug.WriteLine("[PickLogFile] rejected: not a local app page");
+            return;
+        }
+        _logPickActive = true;
+        _ = PickLogFileAsync();
+    }
+
+    private async Task PickLogFileAsync()
     {
         try
         {
@@ -1393,45 +1410,46 @@ public partial class MainPage : ContentPage
             const int chunkSize = 400_000;
             int totalChunks = (text.Length + chunkSize - 1) / chunkSize;
 
-            MainThread.BeginInvokeOnMainThread(async () =>
+            try
             {
-                try
+                await MainWebView.EvaluateJavaScriptAsync("window._nativeLogContent = '';");
+
+                for (int i = 0; i < totalChunks; i++)
                 {
-                    await MainWebView.EvaluateJavaScriptAsync("window._nativeLogContent = '';");
+                    int start = i * chunkSize;
+                    int len = Math.Min(chunkSize, text.Length - start);
+                    var chunk = text.Substring(start, len);
 
-                    for (int i = 0; i < totalChunks; i++)
-                    {
-                        int start = i * chunkSize;
-                        int len = Math.Min(chunkSize, text.Length - start);
-                        var chunk = text.Substring(start, len);
-
-                        var escaped = chunk
-                            .Replace("\\", "\\\\")
-                            .Replace("'", "\\'")
-                            .Replace("\r", "\\r")
-                            .Replace("\n", "\\n")
-                            .Replace("\u2028", "\\u2028")
-                            .Replace("\u2029", "\\u2029");
-
-                        await MainWebView.EvaluateJavaScriptAsync(
-                            $"window._nativeLogContent += '{escaped}';");
-                        await Task.Delay(10);
-                    }
-
-                    await Task.Delay(1000);
+                    var escaped = chunk
+                        .Replace("\\", "\\\\")
+                        .Replace("'", "\\'")
+                        .Replace("\r", "\\r")
+                        .Replace("\n", "\\n")
+                        .Replace("\u2028", "\\u2028")
+                        .Replace("\u2029", "\\u2029");
 
                     await MainWebView.EvaluateJavaScriptAsync(
-                        "if (window._nativeLogContent_ready) window._nativeLogContent_ready();");
+                        $"window._nativeLogContent += '{escaped}';");
+                    await Task.Delay(10);
                 }
-                catch (Exception ex)
-                {
-                    SendLogErrorToWebView(T("native.log.transferfailed", ex.Message));
-                }
-            });
+
+                await Task.Delay(1000);
+
+                await MainWebView.EvaluateJavaScriptAsync(
+                    "if (window._nativeLogContent_ready) window._nativeLogContent_ready();");
+            }
+            catch (Exception ex)
+            {
+                SendLogErrorToWebView(T("native.log.transferfailed", ex.Message));
+            }
         }
         catch (Exception ex)
         {
             SendLogErrorToWebView(ex.Message);
+        }
+        finally
+        {
+            _logPickActive = false;
         }
     }
 
@@ -1481,7 +1499,7 @@ public class NativeBridge : Java.Lang.Object
     [Android.Webkit.JavascriptInterface]
     public void PickLogFile()
     {
-        _page.PickLogFileViaFilePicker();
+        MainThread.BeginInvokeOnMainThread(_page.RequestLogFilePick);
     }
 
 }
