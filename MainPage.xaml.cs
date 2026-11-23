@@ -885,7 +885,7 @@ public partial class MainPage : ContentPage
                         badge.style.cssText = 'position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:11px; background:rgba(80,180,255,0.3); color:#fff; padding:4px 8px; border-radius:8px;';
                         el.appendChild(badge);
                     }
-                    badge.textContent = hint || 'Загрузка...';
+                    badge.textContent = hint || t('launcher.sync.badge');
                 } else if (badge) {
                     badge.remove();
                 }
@@ -1085,18 +1085,18 @@ public partial class MainPage : ContentPage
 
             System.Diagnostics.Debug.WriteLine($"[SyncAll] Загружаем {missingApps.Count} приложений последовательно");
 
-            await UpdateSyncStatus($"Загрузка приложений: 0/{missingApps.Count}...", true);
+            await UpdateSyncStatus(T("launcher.sync.progress", 0, missingApps.Count), true);
 
             int done = 0;
             foreach (var appName in missingApps)
             {
-                await SetAppDisabledAsync(appName, true, "Загрузка...");
+                await SetAppDisabledAsync(appName, true, T("launcher.sync.badge"));
                 _disabledApps.Add(appName);
                 _syncingApps.Add(appName);
 
                 try
                 {
-                    await UpdateSyncStatus($"Загрузка {appName}: {done + 1}/{missingApps.Count}...", true);
+                    await UpdateSyncStatus(T("launcher.sync.app", appName, done + 1, missingApps.Count), true);
 
                     bool synced = await _cacheService.SyncAppAsync(
                         appName,
@@ -1128,7 +1128,7 @@ public partial class MainPage : ContentPage
                 done++;
             }
 
-            await UpdateSyncStatus($"Загрузка завершена: {done}/{missingApps.Count}", false);
+            await UpdateSyncStatus(T("launcher.sync.done", done, missingApps.Count), false);
             System.Diagnostics.Debug.WriteLine($"[SyncAll] Завершено: {done}/{missingApps.Count}");
         }
         catch (Exception ex)
@@ -1218,7 +1218,7 @@ public partial class MainPage : ContentPage
             return await FailLaunchAsync(token, T("dialog.error.title"), T("dialog.app.notfound"));
 
         if (_syncingApps.Contains(appName))
-            return await FailLaunchAsync(token, "Подождите", "Приложение ещё загружается, подождите окончания загрузки.");
+            return await FailLaunchAsync(token, T("dialog.wait.title"), T("dialog.app.syncing"));
 
         _isAppLoaded = false;
         LoadingIndicator.IsVisible = true;
@@ -1294,7 +1294,7 @@ public partial class MainPage : ContentPage
         {
             _syncingApps.Add(appName);
             _disabledApps.Add(appName);
-            await SetAppDisabledAsync(appName, true, "Загрузка...");
+            await SetAppDisabledAsync(appName, true, T("launcher.sync.badge"));
 
             try
             {
@@ -1434,7 +1434,7 @@ public partial class MainPage : ContentPage
         {
             var result = await FilePicker.Default.PickAsync(new PickOptions
             {
-                PickerTitle = "Выберите лог",
+                PickerTitle = T("native.log.pick"),
                 FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
                 {
                     { DevicePlatform.Android, new[] { "*/*" } }
@@ -1443,7 +1443,7 @@ public partial class MainPage : ContentPage
 
             if (result == null)
             {
-                SendLogErrorToWebView("Файл не выбран");
+                SendLogErrorToWebView(T("native.log.notselected"));
                 return;
             }
 
@@ -1486,7 +1486,7 @@ public partial class MainPage : ContentPage
                 }
                 catch (Exception ex)
                 {
-                    SendLogErrorToWebView("Ошибка передачи: " + ex.Message);
+                    SendLogErrorToWebView(T("native.log.transferfailed", ex.Message));
                 }
             });
         }

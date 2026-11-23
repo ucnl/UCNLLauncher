@@ -17,6 +17,10 @@
   "launcher.usb.connected": "USB device connected",
   "launcher.usb.disconnected": "No USB device found",
   "launcher.cache.confirm": "Clear the cache of all apps? An internet connection will be required for the first launch afterwards.",
+  "launcher.sync.badge": "Loading...",
+  "launcher.sync.progress": "Downloading apps: {0}/{1}...",
+  "launcher.sync.app": "Downloading {0}: {1}/{2}...",
+  "launcher.sync.done": "Download complete: {0}/{1}",
 
   "settings.open": "Settings",
   "settings.title": "Settings",
@@ -31,6 +35,9 @@
 
   "native.back": "Back",
   "native.save.title": "Save {0}",
+  "native.log.pick": "Select a log file",
+  "native.log.notselected": "No file selected",
+  "native.log.transferfailed": "Transfer error: {0}",
 
   "dialog.ok": "OK",
   "dialog.gps.title": "GPS",
@@ -40,10 +47,9 @@
   "dialog.error.title": "Error",
   "dialog.app.notfound": "App not found",
   "dialog.app.loadfailed": "Failed to load the app",
+  "dialog.wait.title": "Please wait",
+  "dialog.app.syncing": "The app is still downloading. Please wait until the download finishes.",
   "dialog.usb.title": "USB",
-  "dialog.usb.azm": "AZM device not found",
-  "dialog.usb.gnss": "GNSS receiver not found",
-  "dialog.usb.uwave": "uWave device not found",
   "dialog.usb.generic": "Device not found",
   "dialog.network.title": "No network",
   "dialog.network.message": "The app has not been downloaded yet. Connect to the internet for the first download.",

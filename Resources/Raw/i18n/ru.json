@@ -17,6 +17,10 @@
   "launcher.usb.connected": "USB устройство подключено",
   "launcher.usb.disconnected": "USB устройство не найдено",
   "launcher.cache.confirm": "Очистить кэш всех приложений? После очистки потребуется интернет для первого запуска.",
+  "launcher.sync.badge": "Загрузка...",
+  "launcher.sync.progress": "Загрузка приложений: {0}/{1}...",
+  "launcher.sync.app": "Загрузка {0}: {1}/{2}...",
+  "launcher.sync.done": "Загрузка завершена: {0}/{1}",
 
   "settings.open": "Настройки",
   "settings.title": "Настройки",
@@ -31,6 +35,9 @@
 
   "native.back": "Назад",
   "native.save.title": "Сохранить {0}",
+  "native.log.pick": "Выберите лог",
+  "native.log.notselected": "Файл не выбран",
+  "native.log.transferfailed": "Ошибка передачи: {0}",
 
   "dialog.ok": "OK",
   "dialog.gps.title": "GPS",
@@ -40,10 +47,9 @@
   "dialog.error.title": "Ошибка",
   "dialog.app.notfound": "Приложение не найдено",
   "dialog.app.loadfailed": "Не удалось загрузить приложение",
+  "dialog.wait.title": "Подождите",
+  "dialog.app.syncing": "Приложение ещё загружается, подождите окончания загрузки.",
   "dialog.usb.title": "USB",
-  "dialog.usb.azm": "Устройство AZM не найдено",
-  "dialog.usb.gnss": "GNSS не найден",
-  "dialog.usb.uwave": "Устройство uWave не найдено",
   "dialog.usb.generic": "Устройство не найдено",
   "dialog.network.title": "Нет сети",
   "dialog.network.message": "Приложение ещё не загружено. Подключите интернет для первой загрузки.",
