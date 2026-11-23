@@ -364,7 +364,7 @@ public class UsbService
             var buffer = new byte[1024];
             var result = await Task.Run(() => p.Port.Read(buffer, timeoutMs)).ConfigureAwait(false);
             if (result > 0)
-                return System.Text.Encoding.ASCII.GetBytes(System.Text.Encoding.ASCII.GetString(buffer, 0, result));
+                return System.Text.Encoding.ASCII.GetBytes(System.Text.Encoding.ASCII.GetString(buffer, 0, result).Replace("\r", ""));
         }
         catch (Exception ex) when (ex is Java.IO.IOException or ObjectDisposedException or NullReferenceException)
         {
