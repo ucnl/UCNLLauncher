@@ -350,9 +350,8 @@ public partial class MainPage : ContentPage
             Android.Net.Uri[] results;
             if (resultCode == Android.App.Result.Ok && data != null)
             {
-                results = Android.Webkit.WebChromeClient.FileChooserParams.ParseResult((int)resultCode, data);
-                if (results == null || results.Length == 0)
-                    results = new Android.Net.Uri[0];
+                results = Android.Webkit.WebChromeClient.FileChooserParams.ParseResult((int)resultCode, data)
+                    ?? new Android.Net.Uri[0];
             }
             else
             {
