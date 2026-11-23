@@ -1140,6 +1140,7 @@ public partial class MainPage : ContentPage
             if (missingApps.Count == 0)
             {
                 System.Diagnostics.Debug.WriteLine("[SyncAll] Все приложения уже локально есть");
+                await ClearFailedSyncStatusIfCompleteAsync();
                 return;
             }
 
@@ -1217,7 +1218,18 @@ public partial class MainPage : ContentPage
         {
             _syncTasks.Remove(appName);
             await SetAppDisabledAsync(appName, false, "");
+            await ClearFailedSyncStatusIfCompleteAsync();
         }
+    }
+
+    private async Task ClearFailedSyncStatusIfCompleteAsync()
+    {
+        if (_syncStatusKey != "launcher.sync.failed") return;
+        foreach (var name in _appUrls.Keys)
+        {
+            if (!_cacheService.HasLocalCopy(name)) return;
+        }
+        await UpdateSyncStatus(null, false);
     }
 
     private async Task<int> UpdateSyncStatus(string? key, bool visible, params object[] args)
