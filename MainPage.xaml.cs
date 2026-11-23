@@ -507,7 +507,6 @@ public partial class MainPage : ContentPage
             }
             catch { }
             if (generation != _gpsGeneration) return;
-            if (!interactive && !IsAnyLocationProviderEnabled()) return;
 
             try
             {
@@ -526,23 +525,6 @@ public partial class MainPage : ContentPage
     }
 
 #endif
-
-    private static bool IsAnyLocationProviderEnabled()
-    {
-        try
-        {
-            var manager = (Android.Locations.LocationManager?)Android.App.Application.Context
-                .GetSystemService(Android.Content.Context.LocationService);
-            if (manager == null) return false;
-            return manager.IsProviderEnabled(Android.Locations.LocationManager.GpsProvider)
-                || manager.IsProviderEnabled(Android.Locations.LocationManager.NetworkProvider)
-                || manager.IsProviderEnabled(Android.Locations.LocationManager.PassiveProvider);
-        }
-        catch
-        {
-            return false;
-        }
-    }
 
     private async Task<bool> StartAndroidGPS(bool interactive)
     {
