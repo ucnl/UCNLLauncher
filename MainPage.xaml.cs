@@ -836,6 +836,7 @@ public partial class MainPage : ContentPage
             PushLauncherConfig();
             await Task.Delay(500);
             await InjectLauncherScript();
+            await RestoreSyncStateAsync();
 
             StartSyncAll();
 
@@ -1215,8 +1216,8 @@ public partial class MainPage : ContentPage
         }
         finally
         {
-            await SetAppDisabledAsync(appName, false, "");
             _syncTasks.Remove(appName);
+            await SetAppDisabledAsync(appName, false, "");
         }
     }
 
@@ -1227,6 +1228,18 @@ public partial class MainPage : ContentPage
         int version = ++_syncStatusVersion;
         await ApplySyncStatusAsync();
         return version;
+    }
+
+    private async Task RestoreSyncStateAsync()
+    {
+        if (!IsLauncherPageActive()) return;
+        if (_syncStatusVisible)
+            await ApplySyncStatusAsync();
+        foreach (var appName in _syncTasks.Keys.ToList())
+        {
+            if (_syncTasks.ContainsKey(appName))
+                await SetAppDisabledAsync(appName, true, T("launcher.sync.badge"));
+        }
     }
 
     private async Task HideSyncStatusLaterAsync(int version)
