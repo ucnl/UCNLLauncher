@@ -1412,7 +1412,7 @@ public partial class MainPage : ContentPage
 
             try
             {
-                await MainWebView.EvaluateJavaScriptAsync("window._nativeLogContent = '';");
+                await MainWebView.EvaluateJavaScriptAsync("window._nativeLogParts = []; void 0;");
 
                 for (int i = 0; i < totalChunks; i++)
                 {
@@ -1429,14 +1429,15 @@ public partial class MainPage : ContentPage
                         .Replace("\u2029", "\\u2029");
 
                     await MainWebView.EvaluateJavaScriptAsync(
-                        $"window._nativeLogContent += '{escaped}';");
+                        $"window._nativeLogParts.push('{escaped}'); void 0;");
                     await Task.Delay(10);
                 }
 
                 await Task.Delay(1000);
 
                 await MainWebView.EvaluateJavaScriptAsync(
-                    "if (window._nativeLogContent_ready) window._nativeLogContent_ready();");
+                    "window._nativeLogContent = (window._nativeLogParts || []).join(''); window._nativeLogParts = null; " +
+                    "if (window._nativeLogContent_ready) window._nativeLogContent_ready(); void 0;");
             }
             catch (Exception ex)
             {
