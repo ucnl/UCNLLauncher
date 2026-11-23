@@ -21,6 +21,7 @@
   "launcher.sync.progress": "Downloading apps: {0}/{1}...",
   "launcher.sync.app": "Downloading {0}: {1}/{2}...",
   "launcher.sync.done": "Download complete: {0}/{1}",
+  "launcher.sync.failed": "Downloaded {0} of {1}, errors: {2}",
 
   "settings.open": "Settings",
   "settings.title": "Settings",

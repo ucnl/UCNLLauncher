@@ -21,6 +21,7 @@
   "launcher.sync.progress": "Загрузка приложений: {0}/{1}...",
   "launcher.sync.app": "Загрузка {0}: {1}/{2}...",
   "launcher.sync.done": "Загрузка завершена: {0}/{1}",
+  "launcher.sync.failed": "Загружено {0} из {1}, ошибок: {2}",
 
   "settings.open": "Настройки",
   "settings.title": "Настройки",

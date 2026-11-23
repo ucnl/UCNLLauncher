@@ -29,6 +29,9 @@ public partial class MainPage : ContentPage
     private Task? _syncAllTask;
     private CancellationTokenSource _syncCts = new();
     private bool _isClearingCache;
+    private string _syncStatusText = "";
+    private bool _syncStatusVisible;
+    private int _syncStatusVersion;
     private readonly Dictionary<string, Task<bool>> _syncTasks = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, string> _appUrls = new()
@@ -1145,25 +1148,36 @@ public partial class MainPage : ContentPage
             await UpdateSyncStatus(T("launcher.sync.progress", 0, missingApps.Count), true);
 
             int done = 0;
+            int ok = 0;
             foreach (var appName in missingApps)
             {
                 if (token.IsCancellationRequested) return;
                 if (!_syncTasks.ContainsKey(appName) && _cacheService.HasLocalCopy(appName))
                 {
                     done++;
+                    ok++;
                     continue;
                 }
 
                 await UpdateSyncStatus(T("launcher.sync.app", appName, done + 1, missingApps.Count), true);
-                bool synced = await GetOrStartSync(appName);
+                bool synced = await GetOrStartSync(appName) || _cacheService.HasLocalCopy(appName);
                 System.Diagnostics.Debug.WriteLine($"[SyncAll] {appName} — {(synced ? "OK" : "не удалось")}");
 
                 done++;
+                if (synced) ok++;
             }
             if (token.IsCancellationRequested) return;
 
-            await UpdateSyncStatus(T("launcher.sync.done", done, missingApps.Count), false);
-            System.Diagnostics.Debug.WriteLine($"[SyncAll] Завершено: {done}/{missingApps.Count}");
+            int failed = missingApps.Count - ok;
+            System.Diagnostics.Debug.WriteLine($"[SyncAll] Завершено: {ok}/{missingApps.Count}, ошибок {failed}");
+            if (failed > 0)
+            {
+                await UpdateSyncStatus(T("launcher.sync.failed", ok, missingApps.Count, failed), true);
+                return;
+            }
+
+            int version = await UpdateSyncStatus(T("launcher.sync.done", ok, missingApps.Count), true);
+            _ = HideSyncStatusLaterAsync(version);
         }
         catch (Exception ex)
         {
@@ -1206,19 +1220,37 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private async Task UpdateSyncStatus(string text, bool visible)
+    private async Task<int> UpdateSyncStatus(string text, bool visible)
     {
+        _syncStatusText = visible ? text : "";
+        _syncStatusVisible = visible;
+        int version = ++_syncStatusVersion;
+        await ApplySyncStatusAsync();
+        return version;
+    }
+
+    private async Task HideSyncStatusLaterAsync(int version)
+    {
+        await Task.Delay(3000);
+        if (version == _syncStatusVersion)
+            await UpdateSyncStatus("", false);
+    }
+
+    private async Task ApplySyncStatusAsync()
+    {
+        if (!IsLauncherPageActive()) return;
         try
         {
             await MainWebView.EvaluateJavaScriptAsync(
                 "(function(){var el=document.getElementById('syncStatus');if(!el)return;" +
-                $"el.textContent={JsString(text)};el.style.display={JsString(visible ? "block" : "none")};}})()");
+                $"el.textContent={JsString(_syncStatusText)};el.style.display={JsString(_syncStatusVisible ? "block" : "none")};}})()");
         }
         catch { }
     }
 
     private async Task SetAppDisabledAsync(string appName, bool disabled, string hint)
     {
+        if (!IsLauncherPageActive()) return;
         try
         {
             await MainWebView.EvaluateJavaScriptAsync(
